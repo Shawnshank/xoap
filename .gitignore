@@ -6,5 +6,5 @@
 *.gz
 *.pdf
 *.toc
-/target/*
-*/.vscode/*
+*/target/*
+/.vscode/*
