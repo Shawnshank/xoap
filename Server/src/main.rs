@@ -1,7 +1,8 @@
-// CoAP Server
+// CoAP Server -> Into the embedded system
 // D7018E - Embedded rust
 // Joakim Lundberg <joakim@joakimlundberg.com>
 
+// Externally used crates
 extern crate coap;
 
 use std::io;
