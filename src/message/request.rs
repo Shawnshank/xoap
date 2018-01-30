@@ -47,7 +47,7 @@ impl IsMessage for CoAPRequest {
 #[cfg(test)]
 mod test {
     use super::*;
-    use message::packet::{Packet, CoAPOption};
+    use message::packet::{CoAPOption, Packet};
     use message::header::MessageType;
     use message::IsMessage;
     use std::net::SocketAddr;
@@ -55,7 +55,6 @@ mod test {
 
     #[test]
     fn test_request_create() {
-
         let mut packet = Packet::new();
         let mut request1 = CoAPRequest::new();
 
@@ -77,11 +76,12 @@ mod test {
         packet.header.set_code("0.04");
         request1.set_code("0.04");
 
-        let request2 = CoAPRequest::from_packet(packet,
-                                                &SocketAddr::from_str("127.0.0.1:1234").unwrap());
+        let request2 =
+            CoAPRequest::from_packet(packet, &SocketAddr::from_str("127.0.0.1:1234").unwrap());
 
-        assert_eq!(request1.message.to_bytes().unwrap(),
-                   request2.message.to_bytes().unwrap());
-
+        assert_eq!(
+            request1.message.to_bytes().unwrap(),
+            request2.message.to_bytes().unwrap()
+        );
     }
 }
