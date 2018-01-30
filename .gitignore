@@ -1,10 +1,3 @@
-*.log
-*.aux
-*.bbl
-*.blg
-*.out
-*.gz
-*.pdf
-*.toc
-*/target/*
-/.vscode/*
+target
+Cargo.lock
+*.rs.bk
