@@ -1,4 +1,4 @@
-# XoAp (NOT WORKING YET)
+# XoAP (NOT WORKING YET)
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
 CoAp for embedded systems in Rust.
