@@ -1,7 +1,0 @@
-[package]
-name = "xoap"
-version = "0.1.0"
-authors = ["Joakim Lundberg <joakim@joakimlundberg.com>"]
-
-[dependencies]
-coap = "0.5"
