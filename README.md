@@ -10,8 +10,8 @@ Based on [coap](http://covertness.github.io/coap-rs/coap/index.html) by Covertne
 First add this to your `Cargo.toml`:
 
 ```toml
-[dependencies]
-xoap = "0.1.0"
+[dependencies.xoap]
+version = "0.1.0"
 git = "https://github.com/Shawnshank/xoap"
 ```
 
