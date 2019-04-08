@@ -3,7 +3,6 @@
 
 CoAp for embedded systems in Rust.
 
-Based on [coap](http://covertness.github.io/coap-rs/coap/index.html) by Covertness
 
 ## Installation
 
