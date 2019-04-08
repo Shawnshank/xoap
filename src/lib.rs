@@ -1,55 +1,40 @@
-//! Implementation of the [CoAP Protocol][spec].
-//!
-//! This library provides both a client interface (`CoAPClient`)
-//!   and a server interface (`CoAPServer`).
-//!
-//! [spec]: https://tools.ietf.org/html/rfc7252
-//!
+// Xoap lib CoAP for ARM microcontrollers
 
-#![allow(missing_docs)]
-#![deny(warnings)]
-
-//#![cfg(features = "baremetal")]
 #![no_std]
 
-#[macro_use]
-extern crate cfg_if;
+extern crate heapless;
 
-cfg_if! {
-    if #[cfg(features = "baremetal")]
-    {
-        // ---- Bare metal ----
-        extern crate cast;
-        extern crate nb;
-        //extern crate core as std;
-        extern crate heapless;
-    } else if #[cfg(features = "default")]{
-        // ---- Standard ----
-        extern crate bincode;
-        extern crate rustc_serialize;
-        extern crate mio;
-        extern crate url;
-        extern crate num;
-        extern crate rand;
-        extern crate threadpool;
-        #[macro_use] extern crate enum_primitive;
-        #[macro_use] extern crate log;
+use heapless::consts::*;
+use heapless::Vec;
 
-        #[cfg(test)]
-        extern crate quickcheck;
+pub mod header;
+pub mod options;
+pub mod packet;
 
-        pub use client::CoAPClient;
-        pub use message::header::MessageType;
-        pub use message::IsMessage;
-        pub use message::packet::CoAPOption;
-        pub use message::request::CoAPRequest;
-        pub use message::response::CoAPResponse;
-        pub use server::CoAPServer;
-    }
+struct Resources {
+    path: Vec<u8, U10>,
 }
 
+pub struct Xoap {
+    packet: packet::Packet,
+    resources: Vec<u8, U255>,
+    //header: header::Header,
+    //options: u8,
+}
 
-pub mod utils;
-pub mod message;
-pub mod client;
-pub mod server;
+impl Xoap {
+    pub fn new() -> Result<Self, ()> {
+        let xoap = Xoap {
+            packet: packet::Packet::new().unwrap(),
+            resources: Vec::<u8, U255>::new(),
+        };
+        Ok(xoap)
+    }
+
+    pub fn update(&mut self, inc_data: &[u8], len: u8) {
+        self.packet.decode_packet(inc_data, len)
+        //self.header.decode(inc_data);
+    }
+
+    //pub fn register_resource(&mut self, )
+}
