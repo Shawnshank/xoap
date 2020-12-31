@@ -1,0 +1,143 @@
+use heapless::consts::*;
+use heapless::Vec;
+
+pub struct CoapOption {
+    option: CoapOptionNumbers,
+    data: Vec<u8, U255>,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum CoapOptionNumbers {
+    Zero,
+    IfMatch,
+    UriHost,
+    ETag,
+    IfNoneMatch,
+    UriPort,
+    LocationPath,
+    UriPath,
+    ContentFormat,
+    MaxAge,
+    UriQuery,
+    Accept,
+    LocationQuery,
+    ProxyUri,
+    ProxyScheme,
+    Size1,
+}
+
+impl From<u8> for CoapOptionNumbers {
+    fn from(item: u8) -> Self {
+        match item {
+            0 => CoapOptionNumbers::Zero,
+            1 => CoapOptionNumbers::IfMatch,
+            3 => CoapOptionNumbers::UriHost,
+            4 => CoapOptionNumbers::ETag,
+            5 => CoapOptionNumbers::IfNoneMatch,
+            7 => CoapOptionNumbers::UriPort,
+            8 => CoapOptionNumbers::LocationPath,
+            11 => CoapOptionNumbers::UriPath,
+            12 => CoapOptionNumbers::ContentFormat,
+            14 => CoapOptionNumbers::MaxAge,
+            15 => CoapOptionNumbers::UriQuery,
+            17 => CoapOptionNumbers::Accept,
+            20 => CoapOptionNumbers::LocationQuery,
+            35 => CoapOptionNumbers::ProxyUri,
+            39 => CoapOptionNumbers::ProxyScheme,
+            60 => CoapOptionNumbers::Size1,
+            _ => unreachable!(), // TODO: Handle Reserved cases
+        }
+    }
+}
+impl From<CoapOptionNumbers> for u8 {
+    fn from(item: CoapOptionNumbers) -> Self {
+        match item {
+            CoapOptionNumbers::Zero => 0,
+            CoapOptionNumbers::IfMatch => 1,
+            CoapOptionNumbers::UriHost => 3,
+            CoapOptionNumbers::ETag => 4,
+            CoapOptionNumbers::IfNoneMatch => 5,
+            CoapOptionNumbers::UriPort => 7,
+            CoapOptionNumbers::LocationPath => 8,
+            CoapOptionNumbers::UriPath => 11,
+            CoapOptionNumbers::ContentFormat => 12,
+            CoapOptionNumbers::MaxAge => 14,
+            CoapOptionNumbers::UriQuery => 15,
+            CoapOptionNumbers::Accept => 17,
+            CoapOptionNumbers::LocationQuery => 20,
+            CoapOptionNumbers::ProxyUri => 35,
+            CoapOptionNumbers::ProxyScheme => 39,
+            CoapOptionNumbers::Size1 => 60,
+        }
+    }
+}
+
+impl CoapOption {
+    // WRONG !!!!!!!!!!!!
+    //pub fn encode(option: CoapOptionNumbers, data: &[u8]) -> ([u8; 255], usize) {
+    //    let mut v: [u8; 255] = [0; 255];
+    //    let o: u8 = option.into();
+    //    v[0] = o;
+    //    let mut index = 1;
+    //    for i in data {
+    //        v[index] = *i;
+    //        index = index + 1;
+    //    }
+    //    let length = data.len() + 1; // length of data + option length
+    //    (v, length)
+    //}
+
+    pub fn decode(prev_option_number: u8, buf: &[u8]) -> CoapOption {
+        let d = buf[0] >> 4;
+        let mut byte_offset = 0;
+        let delta: u8 = match d {
+            0..12 => d as u8,
+            13 => {
+                byte_offset = byte_offset + 1;
+                buf[1] as u8 + 13
+            }
+            //14 => ((buf[1] as u16) << 8 | buf[2] as u16) + 269, // Will never be used as we can not handle higher numbers then 60
+            _ => unreachable!(),
+        };
+
+        let option: CoapOptionNumbers = (prev_option_number + delta).into();
+
+        let l = buf[0] & 15;
+        let length: u16 = match l {
+            0..12 => l as u16,
+            13 => {
+                let len = buf[1 + byte_offset] as u16 + 13;
+                byte_offset = byte_offset + 1;
+                len
+            }
+            14 => {
+                let len = ((buf[1 + byte_offset] as u16) << 8 | buf[2 + byte_offset] as u16) + 269;
+                byte_offset = byte_offset + 2;
+                len
+            }
+            _ => unreachable!(),
+        };
+
+        let mut data = Vec::<u8, U255>::new();
+
+        assert_eq!(length as usize, buf.len() - byte_offset - 1);
+
+        for i in byte_offset..(buf.len() - 1) {
+            data.push(buf[i]).unwrap();
+        }
+
+        CoapOption { option, data }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::message::option::*;
+    #[test]
+    fn test_option_decode() {
+        let option = CoapOption::decode(0, &[((3 << 4) | 2), 10, 11]);
+        assert_eq!(option.option, CoapOptionNumbers::UriHost);
+        //assert_eq!(option.data[0], 10);
+        assert_eq!(option.data[1], 11);
+    }
+}
