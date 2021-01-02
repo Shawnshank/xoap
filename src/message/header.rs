@@ -1,4 +1,106 @@
 #[derive(Debug, Clone, PartialEq)]
+pub enum CoapHeaderCode {
+    // Coap Methods
+    GET,
+    POST,
+    PUT,
+    DELETE,
+    // Coap Response codes
+    Created,
+    Deleted,
+    Valid,
+    Changed,
+    Content,
+    BadRequest,
+    Unauthorized,
+    BadOption,
+    Forbidden,
+    NotFound,
+    MethodNotAllowed,
+    NotAcceptable,
+    PreconditionFailed,
+    RequestEntityTooLarge,
+    UnsupportedContentFormat,
+    InternalServerError,
+    NotImplemented,
+    BadGateway,
+    ServiceUnavailable,
+    GatewayTimeout,
+    ProxyingNotSupported,
+}
+
+impl Copy for CoapHeaderCode {}
+
+impl From<u8> for CoapHeaderCode {
+    fn from(item: u8) -> Self {
+        // c.dd -> c*32+d = decimal
+        match item {
+            // Coap Methods
+            1 => CoapHeaderCode::GET,
+            2 => CoapHeaderCode::POST,
+            3 => CoapHeaderCode::PUT,
+            4 => CoapHeaderCode::DELETE,
+            // Coap Response codes
+            65 => CoapHeaderCode::Created,
+            66 => CoapHeaderCode::Deleted,
+            67 => CoapHeaderCode::Valid,
+            68 => CoapHeaderCode::Changed,
+            69 => CoapHeaderCode::Content,
+            128 => CoapHeaderCode::BadRequest,
+            129 => CoapHeaderCode::Unauthorized,
+            130 => CoapHeaderCode::BadOption,
+            131 => CoapHeaderCode::Forbidden,
+            132 => CoapHeaderCode::NotFound,
+            133 => CoapHeaderCode::MethodNotAllowed,
+            134 => CoapHeaderCode::NotAcceptable,
+            140 => CoapHeaderCode::PreconditionFailed,
+            141 => CoapHeaderCode::RequestEntityTooLarge,
+            143 => CoapHeaderCode::UnsupportedContentFormat,
+            160 => CoapHeaderCode::InternalServerError,
+            161 => CoapHeaderCode::NotImplemented,
+            162 => CoapHeaderCode::BadGateway,
+            163 => CoapHeaderCode::ServiceUnavailable,
+            164 => CoapHeaderCode::GatewayTimeout,
+            165 => CoapHeaderCode::ProxyingNotSupported,
+            _ => unreachable!(),
+        }
+    }
+}
+impl From<CoapHeaderCode> for u8 {
+    fn from(item: CoapHeaderCode) -> Self {
+        match item {
+            // Coap Methods
+            CoapHeaderCode::GET => 1,
+            CoapHeaderCode::POST => 2,
+            CoapHeaderCode::PUT => 3,
+            CoapHeaderCode::DELETE => 4,
+            // Coap Response codes
+            CoapHeaderCode::Created => 65,
+            CoapHeaderCode::Deleted => 66,
+            CoapHeaderCode::Valid => 67,
+            CoapHeaderCode::Changed => 68,
+            CoapHeaderCode::Content => 69,
+            CoapHeaderCode::BadRequest => 128,
+            CoapHeaderCode::Unauthorized => 129,
+            CoapHeaderCode::BadOption => 130,
+            CoapHeaderCode::Forbidden => 131,
+            CoapHeaderCode::NotFound => 132,
+            CoapHeaderCode::MethodNotAllowed => 133,
+            CoapHeaderCode::NotAcceptable => 134,
+            CoapHeaderCode::PreconditionFailed => 140,
+            CoapHeaderCode::RequestEntityTooLarge => 141,
+            CoapHeaderCode::UnsupportedContentFormat => 143,
+            CoapHeaderCode::InternalServerError => 160,
+            CoapHeaderCode::NotImplemented => 161,
+            CoapHeaderCode::BadGateway => 162,
+            CoapHeaderCode::ServiceUnavailable => 163,
+            CoapHeaderCode::GatewayTimeout => 164,
+            CoapHeaderCode::ProxyingNotSupported => 165,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct CoapHeader {
     version: u8,       // u2
     t: CoapHeaderType, // u2
@@ -37,90 +139,6 @@ impl From<CoapHeaderType> for u8 {
             CoapHeaderType::NonConfirmable => 1,
             CoapHeaderType::Acknowledgement => 2,
             CoapHeaderType::Reset => 3,
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum CoapHeaderCode {
-    Created,
-    Deleted,
-    Valid,
-    Changed,
-    Content,
-    BadRequest,
-    Unauthorized,
-    BadOption,
-    Forbidden,
-    NotFound,
-    MethodNotAllowed,
-    NotAcceptable,
-    PreconditionFailed,
-    RequestEntityTooLarge,
-    UnsupportedContentFormat,
-    InternalServerError,
-    NotImplemented,
-    BadGateway,
-    ServiceUnavailable,
-    GatewayTimeout,
-    ProxyingNotSupported,
-}
-
-impl Copy for CoapHeaderCode {}
-
-impl From<u8> for CoapHeaderCode {
-    fn from(item: u8) -> Self {
-        // c.dd -> c*32+d = decimal
-        match item {
-            65 => CoapHeaderCode::Created,
-            66 => CoapHeaderCode::Deleted,
-            67 => CoapHeaderCode::Valid,
-            68 => CoapHeaderCode::Changed,
-            69 => CoapHeaderCode::Content,
-            128 => CoapHeaderCode::BadRequest,
-            129 => CoapHeaderCode::Unauthorized,
-            130 => CoapHeaderCode::BadOption,
-            131 => CoapHeaderCode::Forbidden,
-            132 => CoapHeaderCode::NotFound,
-            133 => CoapHeaderCode::MethodNotAllowed,
-            134 => CoapHeaderCode::NotAcceptable,
-            140 => CoapHeaderCode::PreconditionFailed,
-            141 => CoapHeaderCode::RequestEntityTooLarge,
-            143 => CoapHeaderCode::UnsupportedContentFormat,
-            160 => CoapHeaderCode::InternalServerError,
-            161 => CoapHeaderCode::NotImplemented,
-            162 => CoapHeaderCode::BadGateway,
-            163 => CoapHeaderCode::ServiceUnavailable,
-            164 => CoapHeaderCode::GatewayTimeout,
-            165 => CoapHeaderCode::ProxyingNotSupported,
-            _ => unreachable!(),
-        }
-    }
-}
-impl From<CoapHeaderCode> for u8 {
-    fn from(item: CoapHeaderCode) -> Self {
-        match item {
-            CoapHeaderCode::Created => 65,
-            CoapHeaderCode::Deleted => 66,
-            CoapHeaderCode::Valid => 67,
-            CoapHeaderCode::Changed => 68,
-            CoapHeaderCode::Content => 69,
-            CoapHeaderCode::BadRequest => 128,
-            CoapHeaderCode::Unauthorized => 129,
-            CoapHeaderCode::BadOption => 130,
-            CoapHeaderCode::Forbidden => 131,
-            CoapHeaderCode::NotFound => 132,
-            CoapHeaderCode::MethodNotAllowed => 133,
-            CoapHeaderCode::NotAcceptable => 134,
-            CoapHeaderCode::PreconditionFailed => 140,
-            CoapHeaderCode::RequestEntityTooLarge => 141,
-            CoapHeaderCode::UnsupportedContentFormat => 143,
-            CoapHeaderCode::InternalServerError => 160,
-            CoapHeaderCode::NotImplemented => 161,
-            CoapHeaderCode::BadGateway => 162,
-            CoapHeaderCode::ServiceUnavailable => 163,
-            CoapHeaderCode::GatewayTimeout => 164,
-            CoapHeaderCode::ProxyingNotSupported => 165,
         }
     }
 }

@@ -1,5 +1,4 @@
 use crate::CoapError;
-use core::cmp::Ordering;
 use heapless::consts::*;
 use heapless::Vec;
 
@@ -11,6 +10,72 @@ pub enum CoapOptionError {
     LengthError(u8),
     WrongOptionOrder,
     Overflow,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum CoapOptionNumbers {
+    Zero,
+    IfMatch,
+    UriHost,
+    ETag,
+    IfNoneMatch,
+    UriPort,
+    LocationPath,
+    UriPath,
+    ContentFormat,
+    MaxAge,
+    UriQuery,
+    Accept,
+    LocationQuery,
+    ProxyUri,
+    ProxyScheme,
+    Size1,
+}
+
+impl From<u8> for CoapOptionNumbers {
+    fn from(item: u8) -> Self {
+        match item {
+            0 => CoapOptionNumbers::Zero,
+            1 => CoapOptionNumbers::IfMatch,
+            3 => CoapOptionNumbers::UriHost,
+            4 => CoapOptionNumbers::ETag,
+            5 => CoapOptionNumbers::IfNoneMatch,
+            7 => CoapOptionNumbers::UriPort,
+            8 => CoapOptionNumbers::LocationPath,
+            11 => CoapOptionNumbers::UriPath,
+            12 => CoapOptionNumbers::ContentFormat,
+            14 => CoapOptionNumbers::MaxAge,
+            15 => CoapOptionNumbers::UriQuery,
+            17 => CoapOptionNumbers::Accept,
+            20 => CoapOptionNumbers::LocationQuery,
+            35 => CoapOptionNumbers::ProxyUri,
+            39 => CoapOptionNumbers::ProxyScheme,
+            60 => CoapOptionNumbers::Size1,
+            _ => unreachable!(), // TODO: Handle Reserved cases
+        }
+    }
+}
+impl From<CoapOptionNumbers> for u8 {
+    fn from(item: CoapOptionNumbers) -> Self {
+        match item {
+            CoapOptionNumbers::Zero => 0,
+            CoapOptionNumbers::IfMatch => 1,
+            CoapOptionNumbers::UriHost => 3,
+            CoapOptionNumbers::ETag => 4,
+            CoapOptionNumbers::IfNoneMatch => 5,
+            CoapOptionNumbers::UriPort => 7,
+            CoapOptionNumbers::LocationPath => 8,
+            CoapOptionNumbers::UriPath => 11,
+            CoapOptionNumbers::ContentFormat => 12,
+            CoapOptionNumbers::MaxAge => 14,
+            CoapOptionNumbers::UriQuery => 15,
+            CoapOptionNumbers::Accept => 17,
+            CoapOptionNumbers::LocationQuery => 20,
+            CoapOptionNumbers::ProxyUri => 35,
+            CoapOptionNumbers::ProxyScheme => 39,
+            CoapOptionNumbers::Size1 => 60,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -89,94 +154,10 @@ impl CoapOptions {
     }
 }
 
-#[derive(Clone, Eq, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct CoapOption {
     option: CoapOptionNumbers,
     data: Vec<u8, U255>,
-}
-
-impl Ord for CoapOption {
-    fn cmp(&self, other: &Self) -> Ordering {
-        u8::from(self.option).cmp(&u8::from(other.option))
-    }
-}
-
-impl PartialOrd for CoapOption {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl PartialEq for CoapOption {
-    fn eq(&self, other: &Self) -> bool {
-        u8::from(self.option) == u8::from(other.option)
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum CoapOptionNumbers {
-    Zero,
-    IfMatch,
-    UriHost,
-    ETag,
-    IfNoneMatch,
-    UriPort,
-    LocationPath,
-    UriPath,
-    ContentFormat,
-    MaxAge,
-    UriQuery,
-    Accept,
-    LocationQuery,
-    ProxyUri,
-    ProxyScheme,
-    Size1,
-}
-
-impl From<u8> for CoapOptionNumbers {
-    fn from(item: u8) -> Self {
-        match item {
-            0 => CoapOptionNumbers::Zero,
-            1 => CoapOptionNumbers::IfMatch,
-            3 => CoapOptionNumbers::UriHost,
-            4 => CoapOptionNumbers::ETag,
-            5 => CoapOptionNumbers::IfNoneMatch,
-            7 => CoapOptionNumbers::UriPort,
-            8 => CoapOptionNumbers::LocationPath,
-            11 => CoapOptionNumbers::UriPath,
-            12 => CoapOptionNumbers::ContentFormat,
-            14 => CoapOptionNumbers::MaxAge,
-            15 => CoapOptionNumbers::UriQuery,
-            17 => CoapOptionNumbers::Accept,
-            20 => CoapOptionNumbers::LocationQuery,
-            35 => CoapOptionNumbers::ProxyUri,
-            39 => CoapOptionNumbers::ProxyScheme,
-            60 => CoapOptionNumbers::Size1,
-            _ => unreachable!(), // TODO: Handle Reserved cases
-        }
-    }
-}
-impl From<CoapOptionNumbers> for u8 {
-    fn from(item: CoapOptionNumbers) -> Self {
-        match item {
-            CoapOptionNumbers::Zero => 0,
-            CoapOptionNumbers::IfMatch => 1,
-            CoapOptionNumbers::UriHost => 3,
-            CoapOptionNumbers::ETag => 4,
-            CoapOptionNumbers::IfNoneMatch => 5,
-            CoapOptionNumbers::UriPort => 7,
-            CoapOptionNumbers::LocationPath => 8,
-            CoapOptionNumbers::UriPath => 11,
-            CoapOptionNumbers::ContentFormat => 12,
-            CoapOptionNumbers::MaxAge => 14,
-            CoapOptionNumbers::UriQuery => 15,
-            CoapOptionNumbers::Accept => 17,
-            CoapOptionNumbers::LocationQuery => 20,
-            CoapOptionNumbers::ProxyUri => 35,
-            CoapOptionNumbers::ProxyScheme => 39,
-            CoapOptionNumbers::Size1 => 60,
-        }
-    }
 }
 
 impl CoapOption {
@@ -187,11 +168,14 @@ impl CoapOption {
     }
 
     pub fn get_option_number(&self) -> CoapOptionNumbers {
-        self.option
+        self.option.clone()
+    }
+    pub fn get_option_data(&self) -> Vec<u8, U255> {
+        self.data.clone()
     }
     pub fn encode(&self, prev_option: CoapOptionNumbers) -> Result<([u8; 255], usize), CoapError> {
         let mut v: [u8; 255] = [0; 255];
-        let o: u8 = self.option.into();
+        let o: u8 = self.option.clone().into();
         let po: u8 = prev_option.into();
         // Check so that we are encoding the options in order
         if po > o {
@@ -244,7 +228,7 @@ impl CoapOption {
             //14 => ((buf[1] as u16) << 8 | buf[2] as u16) + 269, // Will never be used as we can not handle higher numbers then 60
             e => return Err(CoapError::OptionError(CoapOptionError::DeltaError(e))),
         };
-        //assert_eq!(delta, 250);
+        //assert_eq!(prev_option_number + delta, 250);
         let option: CoapOptionNumbers = (prev_option_number + delta).into();
 
         let l = buf[0] & 15;
@@ -354,6 +338,20 @@ mod tests {
             CoapOption::decode(u8::from(CoapOptionNumbers::IfMatch), &en_option.0).unwrap();
 
         assert_eq!(de_option.option, CoapOptionNumbers::UriHost);
+        assert_eq!(de_option.data, vec_data);
+    }
+
+    #[test]
+    fn encode_decode_previous_option_uripath() {
+        let data = "test".as_bytes();
+        let vec_data: Vec<u8, U5> = Vec::from_slice(&data).unwrap();
+        let en_option = CoapOption::new(CoapOptionNumbers::UriPath, &data)
+            .encode(CoapOptionNumbers::IfMatch)
+            .unwrap();
+        let de_option =
+            CoapOption::decode(u8::from(CoapOptionNumbers::IfMatch), &en_option.0).unwrap();
+
+        assert_eq!(de_option.option, CoapOptionNumbers::UriPath);
         assert_eq!(de_option.data, vec_data);
     }
 }

@@ -5,6 +5,74 @@ use heapless::Vec;
 pub mod header;
 pub mod option;
 
+#[derive(Debug, Clone)]
+pub enum CoapMethod {
+    GET,
+    POST,
+    PUT,
+    DELETE,
+}
+
+impl From<u8> for CoapMethod {
+    fn from(item: u8) -> Self {
+        match item {
+            1 => CoapMethod::GET,
+            2 => CoapMethod::POST,
+            3 => CoapMethod::PUT,
+            4 => CoapMethod::DELETE,
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl From<CoapMethod> for u8 {
+    fn from(item: CoapMethod) -> Self {
+        match item {
+            CoapMethod::GET => 1,
+            CoapMethod::POST => 2,
+            CoapMethod::PUT => 3,
+            CoapMethod::DELETE => 4,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CoapMediaType {
+    TextPlain,
+    ApplicationLinkFormat,
+    ApplicationXml,
+    ApplicationOctetStream,
+    ApplicationExi,
+    ApplicationJson,
+}
+
+impl From<u8> for CoapMediaType {
+    fn from(item: u8) -> Self {
+        match item {
+            0 => CoapMediaType::TextPlain,
+            40 => CoapMediaType::ApplicationLinkFormat,
+            41 => CoapMediaType::ApplicationXml,
+            42 => CoapMediaType::ApplicationOctetStream,
+            47 => CoapMediaType::ApplicationExi,
+            50 => CoapMediaType::ApplicationJson,
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl From<CoapMediaType> for u8 {
+    fn from(item: CoapMediaType) -> Self {
+        match item {
+            CoapMediaType::TextPlain => 0,
+            CoapMediaType::ApplicationLinkFormat => 40,
+            CoapMediaType::ApplicationXml => 41,
+            CoapMediaType::ApplicationOctetStream => 42,
+            CoapMediaType::ApplicationExi => 47,
+            CoapMediaType::ApplicationJson => 50,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct CoapToken {
     token: Vec<u8, U8>,
@@ -23,11 +91,11 @@ impl CoapToken {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct CoapMessage {
-    header: header::CoapHeader,
+    pub header: header::CoapHeader,
     token: CoapToken,
-    options: option::CoapOptions,
+    pub options: option::CoapOptions,
     payload_marker: u8,
     payload: Vec<u8, U1024>,
     payload_length: usize,
@@ -117,6 +185,7 @@ impl CoapMessage {
         if rest.len() == 0 {
             return Ok(CoapMessage::new(header, &[0]));
         }
+        //assert_eq!(rest, &[0]);
         let (options, mut rest) = option::CoapOptions::decode(rest)?;
 
         if rest.len() > 1 && rest[0] == 0xff {
