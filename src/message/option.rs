@@ -2,12 +2,43 @@ use crate::CoapError;
 use heapless::consts::*;
 use heapless::Vec;
 
+#[derive(Clone)]
+pub struct CoapOptions {
+    options: Vec<CoapOption, U10>,
+    length: usize,
+}
+
+impl CoapOptions {
+    pub fn new() -> Self {
+        CoapOptions {
+            options: Vec::<CoapOption, U10>::new(),
+            length: 0,
+        }
+    }
+    pub fn len(&self) -> usize {
+        self.length
+    }
+    pub fn push(&mut self, option: CoapOption) -> Result<(), CoapError> {
+        match self.options.push(option) {
+            Ok(_) => Ok(()),
+            Err(_) => Err(CoapError::MessageError),
+        }
+    }
+    pub fn pop(&mut self) -> Result<CoapOption, CoapError> {
+        match self.options.pop() {
+            Some(e) => Ok(e),
+            _ => Err(CoapError::MessageError),
+        }
+    }
+}
+
+#[derive(Clone)]
 pub struct CoapOption {
     option: CoapOptionNumbers,
     data: Vec<u8, U255>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum CoapOptionNumbers {
     Zero,
     IfMatch,
@@ -74,21 +105,25 @@ impl From<CoapOptionNumbers> for u8 {
 }
 
 impl CoapOption {
-    // WRONG !!!!!!!!!!!!
-    pub fn encode(
-        prev_option: CoapOptionNumbers,
-        option: CoapOptionNumbers,
-        data: &[u8],
-    ) -> Result<([u8; 255], usize), CoapError> {
+    pub fn new(option: CoapOptionNumbers, data: &[u8]) -> Self {
+        let mut d: Vec<u8, U255> = Vec::new();
+        d.extend_from_slice(data);
+        CoapOption { option, data: d }
+    }
+
+    pub fn get_option_number(&self) ->  CoapOptionNumbers {
+        self.option
+    }
+    pub fn encode(&self, prev_option: CoapOptionNumbers) -> Result<([u8; 255], usize), CoapError> {
         let mut v: [u8; 255] = [0; 255];
-        let o: u8 = option.into();
+        let o: u8 = self.option.into();
         let po: u8 = prev_option.into();
         // Check so that we are encoding the options in order
         if po > o {
             return Err(CoapError::OptionError);
         }
         let option_delta = o - po;
-        let option_length = data.len() as u8;
+        let option_length = self.data.len() as u8;
         // TODO: make the correct assumtion regarding available length, not just 254 bytes
         if option_length > 254 {
             return Err(CoapError::OptionError);
@@ -114,11 +149,11 @@ impl CoapOption {
             _ => return Err(CoapError::OptionError),
         }
         let mut index = 1 + byte_offset;
-        for i in data {
+        for i in &self.data {
             v[index] = *i;
             index = index + 1;
         }
-        let length = data.len() + 1 + byte_offset; // length of data + option length
+        let length = self.data.len() + 1 + byte_offset; // length of data + option length
         Ok((v, length))
     }
 
@@ -190,8 +225,9 @@ mod tests {
     #[test]
     fn encode() {
         let data = [1, 2, 3, 4, 5];
-        let option =
-            CoapOption::encode(CoapOptionNumbers::Zero, CoapOptionNumbers::UriHost, &data).unwrap();
+        let option = CoapOption::new(CoapOptionNumbers::UriHost, &data)
+            .encode(CoapOptionNumbers::Zero)
+            .unwrap();
         assert_eq!(
             CoapOptionNumbers::from(option.0[0] >> 4),
             CoapOptionNumbers::UriHost
@@ -206,8 +242,9 @@ mod tests {
     #[test]
     fn encode_previous_option() {
         let data = [1, 2, 3, 4, 5];
-        let option =
-            CoapOption::encode(CoapOptionNumbers::UriHost, CoapOptionNumbers::ETag, &data).unwrap();
+        let option = CoapOption::new(CoapOptionNumbers::ETag, &data)
+            .encode(CoapOptionNumbers::UriHost)
+            .unwrap();
         assert_eq!(
             CoapOptionNumbers::from(option.0[0] >> 4),
             CoapOptionNumbers::IfMatch
@@ -223,8 +260,9 @@ mod tests {
     fn encode_decode_option() {
         let data = [1, 2, 3, 4, 5];
         let vec_data: Vec<u8, U5> = Vec::from_slice(&data).unwrap();
-        let en_option =
-            CoapOption::encode(CoapOptionNumbers::Zero, CoapOptionNumbers::UriHost, &data).unwrap();
+        let en_option = CoapOption::new(CoapOptionNumbers::UriHost, &data)
+            .encode(CoapOptionNumbers::Zero)
+            .unwrap();
         let de_option = CoapOption::decode(0, &en_option.0).unwrap();
 
         assert_eq!(de_option.option, CoapOptionNumbers::UriHost);
@@ -234,12 +272,9 @@ mod tests {
     fn encode_decode_previous_option() {
         let data = [1, 2, 3, 4, 5];
         let vec_data: Vec<u8, U5> = Vec::from_slice(&data).unwrap();
-        let en_option = CoapOption::encode(
-            CoapOptionNumbers::IfMatch,
-            CoapOptionNumbers::UriHost,
-            &data,
-        )
-        .unwrap();
+        let en_option = CoapOption::new(CoapOptionNumbers::UriHost, &data)
+            .encode(CoapOptionNumbers::IfMatch)
+            .unwrap();
         let de_option =
             CoapOption::decode(u8::from(CoapOptionNumbers::IfMatch), &en_option.0).unwrap();
 

@@ -6,13 +6,15 @@ pub struct CoapHeader {
     message_id: u16,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum CoapHeaderType {
     Confirmable,
     NonConfirmable,
     Acknowledgement,
     Reset,
 }
+
+impl Copy for CoapHeaderType {}
 
 impl From<u8> for CoapHeaderType {
     fn from(item: u8) -> Self {
@@ -36,7 +38,7 @@ impl From<CoapHeaderType> for u8 {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum CoapHeaderCode {
     Created,
     Deleted,
@@ -60,6 +62,8 @@ pub enum CoapHeaderCode {
     GatewayTimeout,
     ProxyingNotSupported,
 }
+
+impl Copy for CoapHeaderCode {}
 
 impl From<u8> for CoapHeaderCode {
     fn from(item: u8) -> Self {
@@ -128,7 +132,7 @@ impl CoapHeader {
             message_id,
         }
     }
-    pub fn encode(self) -> [u8; 4] {
+    pub fn encode(&self) -> [u8; 4] {
         let t: u8 = self.t.into();
         let vtt: u8 = (self.version << 6) | (t << 4) | self.tkl;
         let code: u8 = self.code.into();
