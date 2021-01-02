@@ -1,5 +1,6 @@
 #![no_std]
 #![feature(exclusive_range_pattern)]
+#![allow(dead_code)]
 
 use heapless::consts::*;
 use heapless::{String, Vec};
@@ -9,7 +10,8 @@ mod message;
 #[derive(Debug)]
 pub enum CoapError {
     ConfigError,
-    OptionError,
+    OptionError(message::option::CoapOptionError),
+    OptionsError(message::option::CoapOptionError),
     HeaderError,
     MessageError,
 }

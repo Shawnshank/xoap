@@ -1,8 +1,19 @@
 use crate::CoapError;
+use core::cmp::Ordering;
 use heapless::consts::*;
 use heapless::Vec;
 
-#[derive(Clone)]
+#[derive(Debug)]
+pub enum CoapOptionError {
+    PushError(CoapOption),
+    PopError,
+    DeltaError(u8),
+    LengthError(u8),
+    WrongOptionOrder,
+    Overflow,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct CoapOptions {
     options: Vec<CoapOption, U10>,
     length: usize,
@@ -20,25 +31,89 @@ impl CoapOptions {
     }
     pub fn push(&mut self, option: CoapOption) -> Result<(), CoapError> {
         match self.options.push(option) {
-            Ok(_) => Ok(()),
-            Err(_) => Err(CoapError::MessageError),
+            Ok(_) => {
+                self.length += 1;
+                Ok(())
+            }
+            Err(e) => Err(CoapError::OptionsError(CoapOptionError::PushError(e))),
         }
     }
     pub fn pop(&mut self) -> Result<CoapOption, CoapError> {
         match self.options.pop() {
-            Some(e) => Ok(e),
-            _ => Err(CoapError::MessageError),
+            Some(e) => {
+                self.length -= 1;
+                Ok(e)
+            }
+            None => Err(CoapError::OptionsError(CoapOptionError::PopError)),
+        }
+    }
+
+    pub fn decode(buf: &mut [u8]) -> Result<(Self, &[u8]), CoapError> {
+        let mut index: usize = 0;
+        let mut options: CoapOptions = CoapOptions::new();
+        let mut ret: &[u8] = &[0];
+        let mut prev_option: u8 = 0;
+        if buf[index] != 0xff {
+            while index < buf.len() && buf[index] != 0xff {
+                let d = buf[index] >> 4;
+                let l = buf[index] & 0xf;
+                let delta: (u8, usize) = match d {
+                    0..12 => (d, 0),
+                    13 => (buf[index + 1] + 13, 1),
+                    //14 => (buf[index + 2] as u16 + 269, 2),
+                    e => return Err(CoapError::OptionsError(CoapOptionError::DeltaError(e))),
+                };
+                let length_bytes: u16 = match l {
+                    0..12 => l as u16,
+                    13 => (1 + buf[index + 1 + delta.1] + 13) as u16,
+                    14 => {
+                        2 + (((buf[index + 1 + delta.1] as u16) << 8u8) as u16
+                            | buf[index + 2 + delta.1] as u16)
+                            + 269
+                    }
+                    e => return Err(CoapError::OptionsError(CoapOptionError::LengthError(e))),
+                };
+                let split_index = 1 + delta.1 + length_bytes as usize;
+                index += split_index;
+                let opt = buf.split_at(split_index);
+                let raw_option = opt.0;
+                ret = opt.1;
+                let option = CoapOption::decode(prev_option, raw_option)?;
+                prev_option = delta.0;
+                options.push(option)?;
+            }
+            Ok((options, ret))
+        } else {
+            Ok((options, buf))
         }
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Eq, Debug)]
 pub struct CoapOption {
     option: CoapOptionNumbers,
     data: Vec<u8, U255>,
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+impl Ord for CoapOption {
+    fn cmp(&self, other: &Self) -> Ordering {
+        u8::from(self.option).cmp(&u8::from(other.option))
+    }
+}
+
+impl PartialOrd for CoapOption {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for CoapOption {
+    fn eq(&self, other: &Self) -> bool {
+        u8::from(self.option) == u8::from(other.option)
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum CoapOptionNumbers {
     Zero,
     IfMatch,
@@ -107,11 +182,11 @@ impl From<CoapOptionNumbers> for u8 {
 impl CoapOption {
     pub fn new(option: CoapOptionNumbers, data: &[u8]) -> Self {
         let mut d: Vec<u8, U255> = Vec::new();
-        d.extend_from_slice(data);
+        d.extend_from_slice(data).unwrap();
         CoapOption { option, data: d }
     }
 
-    pub fn get_option_number(&self) ->  CoapOptionNumbers {
+    pub fn get_option_number(&self) -> CoapOptionNumbers {
         self.option
     }
     pub fn encode(&self, prev_option: CoapOptionNumbers) -> Result<([u8; 255], usize), CoapError> {
@@ -120,13 +195,13 @@ impl CoapOption {
         let po: u8 = prev_option.into();
         // Check so that we are encoding the options in order
         if po > o {
-            return Err(CoapError::OptionError);
+            return Err(CoapError::OptionError(CoapOptionError::WrongOptionOrder));
         }
         let option_delta = o - po;
         let option_length = self.data.len() as u8;
         // TODO: make the correct assumtion regarding available length, not just 254 bytes
         if option_length > 254 {
-            return Err(CoapError::OptionError);
+            return Err(CoapError::OptionError(CoapOptionError::Overflow));
         }
         let mut byte_offset = 0;
         match option_delta {
@@ -136,7 +211,7 @@ impl CoapOption {
                 v[1] = option_delta - 13;
                 byte_offset += 1;
             }
-            _ => return Err(CoapError::OptionError),
+            e => return Err(CoapError::OptionError(CoapOptionError::DeltaError(e))),
         }
 
         match option_length {
@@ -146,7 +221,7 @@ impl CoapOption {
                 v[1] = option_length - 13;
                 byte_offset += 1;
             }
-            _ => return Err(CoapError::OptionError),
+            e => return Err(CoapError::OptionError(CoapOptionError::LengthError(e))),
         }
         let mut index = 1 + byte_offset;
         for i in &self.data {
@@ -167,9 +242,9 @@ impl CoapOption {
                 buf[1] as u8 + 13
             }
             //14 => ((buf[1] as u16) << 8 | buf[2] as u16) + 269, // Will never be used as we can not handle higher numbers then 60
-            _ => return Err(CoapError::OptionError),
+            e => return Err(CoapError::OptionError(CoapOptionError::DeltaError(e))),
         };
-
+        //assert_eq!(delta, 250);
         let option: CoapOptionNumbers = (prev_option_number + delta).into();
 
         let l = buf[0] & 15;
@@ -177,15 +252,15 @@ impl CoapOption {
             0..12 => l as u16,
             13 => {
                 let len = buf[1 + byte_offset] as u16 + 13;
-                byte_offset = byte_offset + 1;
+                //byte_offset = byte_offset + 1;
                 len
             }
             14 => {
                 let len = ((buf[1 + byte_offset] as u16) << 8 | buf[2 + byte_offset] as u16) + 269;
-                byte_offset = byte_offset + 2;
+                //byte_offset = byte_offset + 2;
                 len
             }
-            _ => return Err(CoapError::OptionError),
+            e => return Err(CoapError::OptionError(CoapOptionError::LengthError(e))),
         };
 
         let mut data = Vec::<u8, U255>::new();

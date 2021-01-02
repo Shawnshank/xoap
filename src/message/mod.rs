@@ -2,10 +2,10 @@ use crate::CoapError;
 use heapless::consts::*;
 use heapless::Vec;
 
-mod header;
-mod option;
+pub mod header;
+pub mod option;
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct CoapToken {
     token: Vec<u8, U8>,
     length: usize,
@@ -23,12 +23,13 @@ impl CoapToken {
     }
 }
 
+#[derive(Debug, PartialEq, Clone)]
 pub struct CoapMessage {
     header: header::CoapHeader,
     token: CoapToken,
     options: option::CoapOptions,
     payload_marker: u8,
-    payload: Vec<u8, U255>,
+    payload: Vec<u8, U1024>,
     payload_length: usize,
 }
 
@@ -79,24 +80,54 @@ impl CoapMessage {
             let mut prev_option = option::CoapOptionNumbers::Zero;
             for _i in 0..self.options.len() {
                 let option = self.options.pop()?;
-                let o = self.options.pop()?.encode(prev_option)?;
+                //assert_eq!(option.get_option_number(), option::CoapOptionNumbers::Accept);
+                let o = option.encode(prev_option)?;
                 for j in 0..o.1 {
                     msg[index] = o.0[j];
                     index += 1;
                 }
                 prev_option = option.get_option_number();
+                //assert_eq!(prev_option, option::CoapOptionNumbers::Accept);
             }
         }
         if self.payload_length != 0 {
             msg[index] = self.payload_marker;
             index += 1;
-            for i in 0..self.payload_length  {
+            for i in 0..self.payload_length {
                 msg[index] = self.payload[i];
                 index += 1;
             }
         }
 
         Ok((msg, index))
+    }
+
+    pub fn decode(buf: &mut [u8]) -> Result<Self, CoapError> {
+        if buf.len() < 4 {
+            return Err(CoapError::MessageError);
+        }
+        let (raw_header, mut rest) = buf.split_at_mut(4);
+        let header = header::CoapHeader::decode(raw_header);
+        let mut token: &[u8] = &[];
+        if header.get_tkl() != 0 {
+            let tok = rest.split_at_mut(header.get_tkl() as usize);
+            token = tok.0;
+            rest = tok.1;
+        }
+        if rest.len() == 0 {
+            return Ok(CoapMessage::new(header, &[0]));
+        }
+        let (options, mut rest) = option::CoapOptions::decode(rest)?;
+
+        if rest.len() > 1 && rest[0] == 0xff {
+            rest = &rest[1..];
+        }
+        //assert_eq!(rest, &[0]);
+        let mut new_message: CoapMessage = CoapMessage::new(header, rest);
+        new_message.set_token(token)?;
+        new_message.options = options;
+
+        Ok(new_message)
     }
 }
 
@@ -107,21 +138,83 @@ mod tests {
     use crate::message::option;
 
     #[test]
-    fn encode() {
+    fn encode_header_payload() {
         let data = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let mut msg = message::CoapMessage::new(
-            header::CoapHeader::new(
-                header::CoapHeaderType::Acknowledgement,
-                0,
-                header::CoapHeaderCode::Content,
-                123,
-            ),
-            &data,
+        let header = header::CoapHeader::new(
+            header::CoapHeaderType::Acknowledgement,
+            0,
+            header::CoapHeaderCode::Content,
+            123,
         );
+        let mut msg = message::CoapMessage::new(header.clone(), &data);
         let en_msg = msg.encode().unwrap();
 
-        let arr_msg = 
-        assert_eq!(en_msg.0[..en_msg.1], [0;1024][..en_msg.1]);
-        assert_eq!(en_msg.1, 14);
+        // Check payload marker and payload
+        let expected_msg = [255, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        assert_eq!(en_msg.0[4..en_msg.1], expected_msg[..(en_msg.1 - 4)]);
+        // Check payload length
+        assert_eq!(en_msg.1, 4 + 1 + data.len());
+
+        // Check header
+        let de_header = header::CoapHeader::decode(&en_msg.0[0..4]);
+        assert_eq!(header, de_header);
+    }
+
+    #[test]
+    fn encode_decode_header_payload() {
+        let data = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        let header = header::CoapHeader::new(
+            header::CoapHeaderType::Acknowledgement,
+            0,
+            header::CoapHeaderCode::Content,
+            123,
+        );
+        let mut msg = message::CoapMessage::new(header.clone(), &data);
+        let mut en_msg = msg.encode().unwrap();
+        let buf = &mut en_msg.0[..en_msg.1];
+        let de_msg = message::CoapMessage::decode(buf).unwrap();
+
+        assert_eq!(de_msg, msg);
+    }
+    #[test]
+    fn encode_decode_header_token_payload() {
+        let data = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        let header = header::CoapHeader::new(
+            header::CoapHeaderType::Acknowledgement,
+            3,
+            header::CoapHeaderCode::Content,
+            123,
+        );
+        let mut msg = message::CoapMessage::new(header.clone(), &data);
+        msg.set_token(&[100, 111, 122]).unwrap();
+        let mut en_msg = msg.encode().unwrap();
+        let buf = &mut en_msg.0[..en_msg.1];
+        let de_msg = message::CoapMessage::decode(buf).unwrap();
+
+        assert_eq!(de_msg, msg);
+    }
+    #[test]
+    fn encode_decode_header_token_option_payload() {
+        let data = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        let header = header::CoapHeader::new(
+            header::CoapHeaderType::Acknowledgement,
+            3,
+            header::CoapHeaderCode::Content,
+            123,
+        );
+        let mut msg = message::CoapMessage::new(header.clone(), &data);
+        msg.set_token(&[100, 111, 122]).unwrap();
+        msg.add_option(option::CoapOption::new(
+            option::CoapOptionNumbers::Accept,
+            &[],
+        ))
+        .unwrap();
+
+        let ref_msg = msg.clone();
+        let mut en_msg = msg.encode().unwrap();
+        let buf = &mut en_msg.0[..en_msg.1];
+        let de_msg = message::CoapMessage::decode(buf).unwrap();
+
+        assert_eq!(de_msg, ref_msg);
     }
 }

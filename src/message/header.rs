@@ -1,3 +1,4 @@
+#[derive(Debug, Clone, PartialEq)]
 pub struct CoapHeader {
     version: u8,       // u2
     t: CoapHeaderType, // u2
@@ -5,6 +6,8 @@ pub struct CoapHeader {
     code: CoapHeaderCode,
     message_id: u16,
 }
+
+impl Copy for CoapHeader {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum CoapHeaderType {
@@ -155,6 +158,21 @@ impl CoapHeader {
             code,
             message_id,
         }
+    }
+    pub fn get_version(&self) -> u8 {
+        self.version
+    }
+    pub fn get_tkl(&self) -> u8 {
+        self.tkl
+    }
+    pub fn get_type(&self) -> CoapHeaderType {
+        self.t
+    }
+    pub fn get_code(&self) -> CoapHeaderCode {
+        self.code
+    }
+    pub fn get_message_id(&self) -> u16 {
+        self.message_id
     }
 }
 
