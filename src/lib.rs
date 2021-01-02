@@ -1,16 +1,17 @@
 #![no_std]
 #![feature(exclusive_range_pattern)]
 
-use heapless::{Vec, String};
 use heapless::consts::*;
+use heapless::{String, Vec};
 
 mod message;
 
 #[derive(Debug)]
 pub enum CoapError {
     ConfigError,
-    EncodeOptionError,
-    DecodeOptionError,
+    OptionError,
+    HeaderError,
+    MessageError,
 }
 
 #[derive(Debug)]
@@ -20,7 +21,7 @@ pub struct CoapResource {
 }
 
 pub struct CoapConfig {
-    resources: Vec::<CoapResource, U8>,
+    resources: Vec<CoapResource, U8>,
 }
 
 impl CoapConfig {
@@ -30,16 +31,16 @@ impl CoapConfig {
         }
     }
 
-    pub fn add_resource(&mut self, cb: fn(), path: String<U255>) /*-> Result<(), CoapError>*/{
-        let res = CoapResource{callback: cb, path: path};
+    pub fn add_resource(&mut self, cb: fn(), path: String<U255>) /*-> Result<(), CoapError>*/
+    {
+        let res = CoapResource {
+            callback: cb,
+            path: path,
+        };
         self.resources.push(res).unwrap();
         //Ok(())
     }
 }
 
-
-
 #[cfg(test)]
-mod tests {
-
-}
+mod tests {}

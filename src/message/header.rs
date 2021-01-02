@@ -1,4 +1,3 @@
-
 pub struct CoapHeader {
     version: u8,       // u2
     t: CoapHeaderType, // u2
@@ -7,6 +6,7 @@ pub struct CoapHeader {
     message_id: u16,
 }
 
+#[derive(Debug, PartialEq)]
 pub enum CoapHeaderType {
     Confirmable,
     NonConfirmable,
@@ -36,6 +36,7 @@ impl From<CoapHeaderType> for u8 {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub enum CoapHeaderCode {
     Created,
     Deleted,
@@ -138,7 +139,7 @@ impl CoapHeader {
     }
     pub fn decode(buf: &[u8]) -> CoapHeader {
         let version: u8 = buf[0] >> 6;
-        let t: CoapHeaderType = ((buf[0] >> 4) & 4).into();
+        let t: CoapHeaderType = ((buf[0] << 2) >> 6).into();
         let tkl: u8 = buf[0] & 15;
         let code: CoapHeaderCode = buf[1].into();
         let message_id: u16 = (buf[2] as u16) << 8 | buf[3] as u16;
@@ -150,5 +151,27 @@ impl CoapHeader {
             code,
             message_id,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::message::header::*;
+    #[test]
+    fn encode_decode() {
+        let header = CoapHeader::new(
+            CoapHeaderType::Acknowledgement,
+            3,
+            CoapHeaderCode::Changed,
+            123,
+        );
+        let en_header = header.encode();
+        let de_header = CoapHeader::decode(&en_header);
+
+        assert_eq!(de_header.version, 1);
+        assert_eq!(de_header.t, CoapHeaderType::Acknowledgement);
+        assert_eq!(de_header.tkl, 3);
+        assert_eq!(de_header.code, CoapHeaderCode::Changed);
+        assert_eq!(de_header.message_id, 123);
     }
 }

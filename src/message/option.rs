@@ -85,13 +85,13 @@ impl CoapOption {
         let po: u8 = prev_option.into();
         // Check so that we are encoding the options in order
         if po > o {
-            return Err(CoapError::EncodeOptionError);
+            return Err(CoapError::OptionError);
         }
         let option_delta = o - po;
         let option_length = data.len() as u8;
         // TODO: make the correct assumtion regarding available length, not just 254 bytes
         if option_length > 254 {
-            return Err(CoapError::EncodeOptionError);
+            return Err(CoapError::OptionError);
         }
         let mut byte_offset = 0;
         match option_delta {
@@ -101,7 +101,7 @@ impl CoapOption {
                 v[1] = option_delta - 13;
                 byte_offset += 1;
             }
-            _ => return Err(CoapError::EncodeOptionError),
+            _ => return Err(CoapError::OptionError),
         }
 
         match option_length {
@@ -111,7 +111,7 @@ impl CoapOption {
                 v[1] = option_length - 13;
                 byte_offset += 1;
             }
-            _ => return Err(CoapError::EncodeOptionError),
+            _ => return Err(CoapError::OptionError),
         }
         let mut index = 1 + byte_offset;
         for i in data {
@@ -132,7 +132,7 @@ impl CoapOption {
                 buf[1] as u8 + 13
             }
             //14 => ((buf[1] as u16) << 8 | buf[2] as u16) + 269, // Will never be used as we can not handle higher numbers then 60
-            _ => return Err(CoapError::DecodeOptionError),
+            _ => return Err(CoapError::OptionError),
         };
 
         let option: CoapOptionNumbers = (prev_option_number + delta).into();
@@ -150,7 +150,7 @@ impl CoapOption {
                 byte_offset = byte_offset + 2;
                 len
             }
-            _ => return Err(CoapError::DecodeOptionError),
+            _ => return Err(CoapError::OptionError),
         };
 
         let mut data = Vec::<u8, U255>::new();
@@ -167,11 +167,10 @@ impl CoapOption {
 
 #[cfg(test)]
 mod tests {
-    extern crate std;
     use crate::message::option::*;
 
     #[test]
-    fn test_option_decode() {
+    fn decode() {
         let option = CoapOption::decode(0, &[((3 << 4) | 5), 10, 11, 12, 13, 14]).unwrap();
         assert_eq!(option.option, CoapOptionNumbers::UriHost);
         assert_eq!(option.data[0], 10);
@@ -181,7 +180,7 @@ mod tests {
         assert_eq!(option.data[4], 14);
     }
     #[test]
-    fn test_option_decode_previous_option() {
+    fn decode_previous_option() {
         let option = CoapOption::decode(3, &[((2 << 4) | 2), 10, 11]).unwrap();
         assert_eq!(option.option, CoapOptionNumbers::IfNoneMatch);
         assert_eq!(option.data[0], 10);
@@ -189,7 +188,7 @@ mod tests {
     }
 
     #[test]
-    fn test_option_encode() {
+    fn encode() {
         let data = [1, 2, 3, 4, 5];
         let option =
             CoapOption::encode(CoapOptionNumbers::Zero, CoapOptionNumbers::UriHost, &data).unwrap();
@@ -205,7 +204,7 @@ mod tests {
         assert_eq!(option.0[5], 5);
     }
     #[test]
-    fn test_option_encode_previous_option() {
+    fn encode_previous_option() {
         let data = [1, 2, 3, 4, 5];
         let option =
             CoapOption::encode(CoapOptionNumbers::UriHost, CoapOptionNumbers::ETag, &data).unwrap();
@@ -221,22 +220,28 @@ mod tests {
         assert_eq!(option.0[5], 5);
     }
     #[test]
-    fn test_option_encode_decode_option() {
+    fn encode_decode_option() {
         let data = [1, 2, 3, 4, 5];
         let vec_data: Vec<u8, U5> = Vec::from_slice(&data).unwrap();
-        let en_option = CoapOption::encode(CoapOptionNumbers::Zero, CoapOptionNumbers::UriHost, &data).unwrap();
+        let en_option =
+            CoapOption::encode(CoapOptionNumbers::Zero, CoapOptionNumbers::UriHost, &data).unwrap();
         let de_option = CoapOption::decode(0, &en_option.0).unwrap();
 
         assert_eq!(de_option.option, CoapOptionNumbers::UriHost);
         assert_eq!(de_option.data, vec_data);
-
     }
     #[test]
-    fn test_option_encode_decode_previous_option() {
+    fn encode_decode_previous_option() {
         let data = [1, 2, 3, 4, 5];
         let vec_data: Vec<u8, U5> = Vec::from_slice(&data).unwrap();
-        let en_option = CoapOption::encode(CoapOptionNumbers::IfMatch, CoapOptionNumbers::UriHost, &data).unwrap();
-        let de_option = CoapOption::decode(u8::from(CoapOptionNumbers::IfMatch), &en_option.0).unwrap();
+        let en_option = CoapOption::encode(
+            CoapOptionNumbers::IfMatch,
+            CoapOptionNumbers::UriHost,
+            &data,
+        )
+        .unwrap();
+        let de_option =
+            CoapOption::decode(u8::from(CoapOptionNumbers::IfMatch), &en_option.0).unwrap();
 
         assert_eq!(de_option.option, CoapOptionNumbers::UriHost);
         assert_eq!(de_option.data, vec_data);
