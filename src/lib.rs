@@ -6,8 +6,11 @@ use heapless::consts::*;
 
 mod message;
 
+#[derive(Debug)]
 pub enum CoapError {
     ConfigError,
+    EncodeOptionError,
+    DecodeOptionError,
 }
 
 #[derive(Debug)]
@@ -38,8 +41,5 @@ impl CoapConfig {
 
 #[cfg(test)]
 mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
+
 }
