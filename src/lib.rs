@@ -70,11 +70,44 @@ impl<'a> CoapServer<'a> {
         };
 
         let response = match requset.header.get_code() {
+            message::header::CoapHeaderCode::EMPTY => {
+                let header = message::header::CoapHeader::new(
+                    message::header::CoapHeaderType::Reset,
+                    requset.header.get_tkl(),
+                    message::header::CoapHeaderCode::EMPTY,
+                    requset.header.get_message_id(),
+                );
+                let message = message::CoapMessage::new(header, &[]);
+                Some(message)
+            }
             message::header::CoapHeaderCode::GET => self.handle_get(requset),
             message::header::CoapHeaderCode::POST => self.handle_post(requset),
             message::header::CoapHeaderCode::PUT => self.handle_put(requset),
             message::header::CoapHeaderCode::DELETE => self.handle_delete(requset),
-            _ => panic!(),
+            _ => match requset.header.get_type() {
+                message::header::CoapHeaderType::Confirmable
+                | message::header::CoapHeaderType::Reset
+                | message::header::CoapHeaderType::Acknowledgement => {
+                    let header = message::header::CoapHeader::new(
+                        message::header::CoapHeaderType::Acknowledgement,
+                        requset.header.get_tkl(),
+                        message::header::CoapHeaderCode::MethodNotAllowed,
+                        requset.header.get_message_id(),
+                    );
+                    let message = message::CoapMessage::new(header, &[]);
+                    Some(message)
+                }
+                message::header::CoapHeaderType::NonConfirmable => {
+                    let header = message::header::CoapHeader::new(
+                        message::header::CoapHeaderType::NonConfirmable,
+                        requset.header.get_tkl(),
+                        message::header::CoapHeaderCode::MethodNotAllowed,
+                        requset.header.get_message_id(),
+                    );
+                    let message = message::CoapMessage::new(header, &[]);
+                    Some(message)
+                }
+            },
         };
 
         let encoded_response = response.unwrap().encode().unwrap();
@@ -95,12 +128,36 @@ impl<'a> CoapServer<'a> {
                             payload = res.callback()();
                         }
                     }
+                    if payload == 0 {
+                        let header_type = message::header::CoapHeaderType::Acknowledgement;
+                        let header_code = message::header::CoapHeaderCode::NotFound;
+                        let header = message::header::CoapHeader::new(
+                            header_type,
+                            msg.header.get_tkl(),
+                            header_code,
+                            msg.header.get_message_id(),
+                        );
+                        let response = message::CoapMessage::new(header, &[]);
+                        return Some(response);
+                    }
                 }
+                // Add more options
                 _ => panic!(),
             }
         }
         if msg.header.get_type() == message::header::CoapHeaderType::Confirmable {
             let header_type = message::header::CoapHeaderType::Acknowledgement;
+            let header_code = message::header::CoapHeaderCode::Content;
+            let header = message::header::CoapHeader::new(
+                header_type,
+                msg.header.get_tkl(),
+                header_code,
+                msg.header.get_message_id(),
+            );
+            let response = message::CoapMessage::new(header, &[payload]);
+            return Some(response);
+        } else if msg.header.get_type() == message::header::CoapHeaderType::NonConfirmable {
+            let header_type = message::header::CoapHeaderType::NonConfirmable;
             let header_code = message::header::CoapHeaderCode::Content;
             let header = message::header::CoapHeader::new(
                 header_type,

@@ -1,5 +1,6 @@
 #[derive(Debug, Clone, PartialEq)]
 pub enum CoapHeaderCode {
+    EMPTY,
     // Coap Methods
     GET,
     POST,
@@ -35,6 +36,7 @@ impl From<u8> for CoapHeaderCode {
     fn from(item: u8) -> Self {
         // c.dd -> c*32+d = decimal
         match item {
+            0 => CoapHeaderCode::EMPTY,
             // Coap Methods
             1 => CoapHeaderCode::GET,
             2 => CoapHeaderCode::POST,
@@ -69,6 +71,7 @@ impl From<u8> for CoapHeaderCode {
 impl From<CoapHeaderCode> for u8 {
     fn from(item: CoapHeaderCode) -> Self {
         match item {
+            CoapHeaderCode::EMPTY => 0,
             // Coap Methods
             CoapHeaderCode::GET => 1,
             CoapHeaderCode::POST => 2,
