@@ -8,6 +8,8 @@ Note: This library is NOT a full protocol implementation.
 * Does not require a allocator.
 * Focus on easy of use
 
+### Current status
+
 ## Restrictions
 * Only supports Piggybacked responses
 * Only one URI-Path per request

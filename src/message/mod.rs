@@ -97,7 +97,7 @@ pub struct CoapMessage {
     token: CoapToken,
     pub options: option::CoapOptions,
     payload_marker: u8,
-    payload: Vec<u8, U1024>,
+    payload: Vec<u8, U255>,
     payload_length: usize,
 }
 
@@ -130,9 +130,9 @@ impl CoapMessage {
         Ok(())
     }
 
-    pub fn encode(&mut self) -> Result<([u8; 1024], usize), CoapError> {
+    pub fn encode(&mut self) -> Result<([u8; 255], usize), CoapError> {
         let mut index = 0;
-        let mut msg: [u8; 1024] = [0; 1024];
+        let mut msg: [u8; 255] = [0; 255];
         let header = self.header.encode();
         for i in &header {
             msg[index] = *i;
@@ -148,14 +148,12 @@ impl CoapMessage {
             let mut prev_option = option::CoapOptionNumbers::Zero;
             for _i in 0..self.options.len() {
                 let option = self.options.pop()?;
-                //assert_eq!(option.get_option_number(), option::CoapOptionNumbers::Accept);
                 let o = option.encode(prev_option)?;
                 for j in 0..o.1 {
                     msg[index] = o.0[j];
                     index += 1;
                 }
                 prev_option = option.get_option_number();
-                //assert_eq!(prev_option, option::CoapOptionNumbers::Accept);
             }
         }
         if self.payload_length != 0 {
@@ -278,6 +276,48 @@ mod tests {
             &[],
         ))
         .unwrap();
+
+        let ref_msg = msg.clone();
+        let mut en_msg = msg.encode().unwrap();
+        let buf = &mut en_msg.0[..en_msg.1];
+        let de_msg = message::CoapMessage::decode(buf).unwrap();
+
+        assert_eq!(de_msg, ref_msg);
+    }
+
+    #[test]
+    fn encode_decode_header_token_multiple_option_payload() {
+        let data = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        let header = header::CoapHeader::new(
+            header::CoapHeaderType::Acknowledgement,
+            3,
+            header::CoapHeaderCode::Content,
+            123,
+        );
+        let mut msg = message::CoapMessage::new(header.clone(), &data);
+        msg.set_token(&[100, 111, 122]).unwrap();
+        msg.add_option(option::CoapOption::new(
+            option::CoapOptionNumbers::IfNoneMatch,
+            &[],
+        ))
+        .unwrap(); // 5
+        msg.add_option(option::CoapOption::new(
+            option::CoapOptionNumbers::UriPath,
+            b"test",
+        ))
+        .unwrap(); // 11
+
+        msg.add_option(option::CoapOption::new(
+            option::CoapOptionNumbers::Accept,
+            &[],
+        ))
+        .unwrap(); // 17
+
+        msg.add_option(option::CoapOption::new(
+            option::CoapOptionNumbers::ProxyUri,
+            b"ost",
+        ))
+        .unwrap(); // 35
 
         let ref_msg = msg.clone();
         let mut en_msg = msg.encode().unwrap();

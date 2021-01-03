@@ -54,15 +54,16 @@ impl CoapConfig {
     }
 }
 
-pub struct CoapServer {
+pub struct CoapServer<'a> {
     config: CoapConfig,
+    buffer: &'a [u8],
 }
 
-impl CoapServer {
-    pub fn new(config: CoapConfig) -> Self {
-        CoapServer { config }
+impl<'a> CoapServer<'a> {
+    pub fn new(config: CoapConfig, buffer: &'a mut [u8]) -> Self {
+        CoapServer { config, buffer }
     }
-    pub fn handle_message(self, msg: &mut [u8]) -> Vec<u8, U1024> {
+    pub fn handle_message(self, msg: &mut [u8]) -> Vec<u8, U255> {
         let requset = match message::CoapMessage::decode(msg) {
             Ok(msg) => msg,
             Err(_) => panic!(), // Handle error with specific coap response message
@@ -78,7 +79,7 @@ impl CoapServer {
 
         let encoded_response = response.unwrap().encode().unwrap();
 
-        let mut msg_resp = Vec::<u8, U1024>::from_slice(&encoded_response.0).unwrap();
+        let mut msg_resp = Vec::<u8, U255>::from_slice(&encoded_response.0).unwrap();
         msg_resp.truncate(encoded_response.1);
         msg_resp
     }
@@ -134,7 +135,8 @@ mod tests {
     fn resource_calling() {
         let mut config = CoapConfig::new();
         config.add_resource(dummy_function, "test");
-        let server = CoapServer::new(config);
+        let mut buffer: [u8; 1024] = [0; 1024];
+        let server = CoapServer::new(config, &mut buffer);
 
         let header = message::header::CoapHeader::new(
             message::header::CoapHeaderType::Confirmable,
@@ -150,11 +152,10 @@ mod tests {
         msg.add_option(option).unwrap();
         msg.set_token(&[100, 101]).unwrap();
         let mut raw_msg = msg.encode().unwrap();
-        assert_eq!(raw_msg.0, [0; 1024]);
         let resp = server.handle_message(&mut raw_msg.0);
 
         let expected_response = [98, 69, 0, 123, 255, dummy_function()];
-        let mut ex_resp =  Vec::<u8, U1024>::from_slice(&expected_response).unwrap();
+        let mut ex_resp = Vec::<u8, U255>::from_slice(&expected_response).unwrap();
         ex_resp.truncate(expected_response.len());
 
         assert_eq!(ex_resp, resp);
