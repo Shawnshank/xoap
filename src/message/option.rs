@@ -4,7 +4,7 @@ use heapless::Vec;
 
 #[derive(Debug)]
 pub enum CoapOptionError {
-    PushError(CoapOption),
+    PushError,
     PopError,
     DeltaError(u8),
     LengthError(u8),
@@ -79,12 +79,12 @@ impl From<CoapOptionNumbers> for u8 {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct CoapOptions {
-    options: Vec<CoapOption, U10>,
+pub struct CoapOptions<'a> {
+    options: Vec<CoapOption<'a>, U10>,
     length: usize,
 }
 
-impl CoapOptions {
+impl<'a> CoapOptions<'a> {
     pub fn new() -> Self {
         CoapOptions {
             options: Vec::<CoapOption, U10>::new(),
@@ -100,7 +100,7 @@ impl CoapOptions {
                 self.length += 1;
                 Ok(())
             }
-            Err(e) => Err(CoapError::OptionsError(CoapOptionError::PushError(e))),
+            Err(_) => Err(CoapError::OptionsError(CoapOptionError::PushError)),
         }
     }
     pub fn pop(&mut self) -> Result<CoapOption, CoapError> {
@@ -120,13 +120,6 @@ impl CoapOptions {
         self.length -= 1;
 
         Ok(option)
-        //match self.options.pop() {
-        //    Some(e) => {
-        //        self.length -= 1;
-        //        Ok(e)
-        //    }
-        //    None => Err(CoapError::OptionsError(CoapOptionError::PopError)),
-        //}
     }
 
     pub fn decode(buf: &mut [u8]) -> Result<(Self, &[u8]), CoapError> {
@@ -170,22 +163,23 @@ impl CoapOptions {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct CoapOption {
+pub struct CoapOption<'a> {
     option: CoapOptionNumbers,
-    data: Vec<u8, U255>,
+    //data: Vec<u8, U255>,
+    data: &'a[u8],
 }
 
-impl CoapOption {
-    pub fn new(option: CoapOptionNumbers, data: &[u8]) -> Self {
-        let mut d: Vec<u8, U255> = Vec::new();
-        d.extend_from_slice(data).unwrap();
-        CoapOption { option, data: d }
+impl<'a> CoapOption<'a> {
+    pub fn new(option: CoapOptionNumbers, data: &'a[u8]) -> Self {
+        //let mut d: Vec<u8, U255> = Vec::new();
+        //d.extend_from_slice(data).unwrap();
+        CoapOption { option, data: data/*: d*/ }
     }
 
     pub fn get_option_number(&self) -> CoapOptionNumbers {
         self.option.clone()
     }
-    pub fn get_option_data(&self) -> Vec<u8, U255> {
+    pub fn get_option_data(&self) -> &[u8]/*Vec<u8, U255>*/ {
         self.data.clone()
     }
     pub fn encode(&self, prev_option: CoapOptionNumbers) -> Result<([u8; 255], usize), CoapError> {
@@ -223,7 +217,7 @@ impl CoapOption {
             e => return Err(CoapError::OptionError(CoapOptionError::LengthError(e))),
         }
         let mut index = 1 + byte_offset;
-        for i in &self.data {
+        for i in self.data {
             v[index] = *i;
             index = index + 1;
         }
@@ -260,10 +254,13 @@ impl CoapOption {
             e => return Err(CoapError::OptionError(CoapOptionError::LengthError(e))),
         };
 
-        let mut data = Vec::<u8, U255>::new();
+        //let mut data = Vec::<u8, U255>::new();
+        let mut data: &[u8] = &[0];
+        let mut index: usize = 0;
         // Data
         for i in (1 + byte_offset)..(length as usize + 1 + byte_offset) {
-            data.push(buf[i]).unwrap();
+            data[index] = buf[i];
+            index += 1;
         }
         Ok(CoapOption { option, data })
     }
