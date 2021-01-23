@@ -7,6 +7,9 @@ use heapless::{String, Vec};
 
 mod message;
 
+use message::header::CoapHeader;
+use message::header::{CoapHeaderCode, CoapHeaderType};
+
 #[derive(Debug)]
 pub enum CoapError {
     ConfigError,
@@ -70,38 +73,38 @@ impl<'a> CoapServer<'a> {
         };
 
         let response = match requset.header.get_code() {
-            message::header::CoapHeaderCode::EMPTY => {
-                let header = message::header::CoapHeader::new(
-                    message::header::CoapHeaderType::Reset,
+            CoapHeaderCode::EMPTY => {
+                let header = CoapHeader::new(
+                    CoapHeaderType::Reset,
                     requset.header.get_tkl(),
-                    message::header::CoapHeaderCode::EMPTY,
+                    CoapHeaderCode::EMPTY,
                     requset.header.get_message_id(),
                 );
                 let message = message::CoapMessage::new(header, &[]);
                 Some(message)
             }
-            message::header::CoapHeaderCode::GET => self.handle_get(requset),
-            message::header::CoapHeaderCode::POST => self.handle_post(requset),
-            message::header::CoapHeaderCode::PUT => self.handle_put(requset),
-            message::header::CoapHeaderCode::DELETE => self.handle_delete(requset),
+            CoapHeaderCode::GET => self.handle_get(requset),
+            CoapHeaderCode::POST => self.handle_post(requset),
+            CoapHeaderCode::PUT => self.handle_put(requset),
+            CoapHeaderCode::DELETE => self.handle_delete(requset),
             _ => match requset.header.get_type() {
-                message::header::CoapHeaderType::Confirmable
-                | message::header::CoapHeaderType::Reset
-                | message::header::CoapHeaderType::Acknowledgement => {
-                    let header = message::header::CoapHeader::new(
-                        message::header::CoapHeaderType::Acknowledgement,
+                CoapHeaderType::Confirmable
+                | CoapHeaderType::Reset
+                | CoapHeaderType::Acknowledgement => {
+                    let header = CoapHeader::new(
+                        CoapHeaderType::Acknowledgement,
                         requset.header.get_tkl(),
-                        message::header::CoapHeaderCode::MethodNotAllowed,
+                        CoapHeaderCode::MethodNotAllowed,
                         requset.header.get_message_id(),
                     );
                     let message = message::CoapMessage::new(header, &[]);
                     Some(message)
                 }
-                message::header::CoapHeaderType::NonConfirmable => {
-                    let header = message::header::CoapHeader::new(
-                        message::header::CoapHeaderType::NonConfirmable,
+                CoapHeaderType::NonConfirmable => {
+                    let header = CoapHeader::new(
+                        CoapHeaderType::NonConfirmable,
                         requset.header.get_tkl(),
-                        message::header::CoapHeaderCode::MethodNotAllowed,
+                        CoapHeaderCode::MethodNotAllowed,
                         requset.header.get_message_id(),
                     );
                     let message = message::CoapMessage::new(header, &[]);
@@ -129,9 +132,9 @@ impl<'a> CoapServer<'a> {
                         }
                     }
                     if payload == 0 {
-                        let header_type = message::header::CoapHeaderType::Acknowledgement;
-                        let header_code = message::header::CoapHeaderCode::NotFound;
-                        let header = message::header::CoapHeader::new(
+                        let header_type = CoapHeaderType::Acknowledgement;
+                        let header_code = CoapHeaderCode::NotFound;
+                        let header = CoapHeader::new(
                             header_type,
                             msg.header.get_tkl(),
                             header_code,
@@ -145,10 +148,10 @@ impl<'a> CoapServer<'a> {
                 _ => panic!(),
             }
         }
-        if msg.header.get_type() == message::header::CoapHeaderType::Confirmable {
-            let header_type = message::header::CoapHeaderType::Acknowledgement;
-            let header_code = message::header::CoapHeaderCode::Content;
-            let header = message::header::CoapHeader::new(
+        if msg.header.get_type() == CoapHeaderType::Confirmable {
+            let header_type = CoapHeaderType::Acknowledgement;
+            let header_code = CoapHeaderCode::Content;
+            let header = CoapHeader::new(
                 header_type,
                 msg.header.get_tkl(),
                 header_code,
@@ -156,10 +159,10 @@ impl<'a> CoapServer<'a> {
             );
             let response = message::CoapMessage::new(header, &[payload]);
             return Some(response);
-        } else if msg.header.get_type() == message::header::CoapHeaderType::NonConfirmable {
-            let header_type = message::header::CoapHeaderType::NonConfirmable;
-            let header_code = message::header::CoapHeaderCode::Content;
-            let header = message::header::CoapHeader::new(
+        } else if msg.header.get_type() == CoapHeaderType::NonConfirmable {
+            let header_type = CoapHeaderType::NonConfirmable;
+            let header_code = CoapHeaderCode::Content;
+            let header = CoapHeader::new(
                 header_type,
                 msg.header.get_tkl(),
                 header_code,
@@ -195,12 +198,7 @@ mod tests {
         let mut buffer: [u8; 1024] = [0; 1024];
         let server = CoapServer::new(config, &mut buffer);
 
-        let header = message::header::CoapHeader::new(
-            message::header::CoapHeaderType::Confirmable,
-            2,
-            message::header::CoapHeaderCode::GET,
-            123,
-        );
+        let header = CoapHeader::new(CoapHeaderType::Confirmable, 2, CoapHeaderCode::GET, 123);
         let mut msg = message::CoapMessage::new(header, &[1, 2]);
         let option = message::option::CoapOption::new(
             message::option::CoapOptionNumbers::UriPath,
