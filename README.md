@@ -13,4 +13,3 @@ Not tested. Not ready
 
 ## Restrictions
 * Only supports Piggybacked responses
-* Only one URI-Path per request
