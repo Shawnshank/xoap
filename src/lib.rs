@@ -239,6 +239,7 @@ mod tests {
     fn test_level_cheese() -> u8 {
         3
     }
+
     #[test]
     fn multiple_uri_path() {
         let mut config = CoapConfig::new();
@@ -271,6 +272,44 @@ mod tests {
         let resp = server.handle_message(&mut raw_msg.0);
 
         let expected_response = [98, 69, 0, 123, 255, test_level_cheese()];
+        let mut ex_resp = Vec::<u8, U255>::from_slice(&expected_response).unwrap();
+        ex_resp.truncate(expected_response.len());
+
+        assert_eq!(ex_resp, resp);
+    }
+
+    #[test]
+    fn endpoint_not_found() {
+        let mut config = CoapConfig::new();
+        config.add_resource(test, "test");
+        config.add_resource(test_level, "test/level");
+        config.add_resource(test_level_cheese, "test/level/cheese");
+
+        let mut buffer: [u8; 1024] = [0; 1024];
+        let server = CoapServer::new(config, &mut buffer);
+
+        let header = CoapHeader::new(CoapHeaderType::Confirmable, 2, CoapHeaderCode::GET, 123);
+        let mut msg = message::CoapMessage::new(header, &[1, 2]);
+        let option = CoapOption::new(
+            CoapOptionNumbers::UriPath,
+            "test".as_bytes(),
+        );
+        let option_2 = CoapOption::new(
+            CoapOptionNumbers::UriPath,
+            "level".as_bytes(),
+        );
+        let option_3 = CoapOption::new(
+            CoapOptionNumbers::UriPath,
+            "wrongEndpoint".as_bytes(),
+        );
+        msg.add_option(option).unwrap();
+        msg.add_option(option_2).unwrap();
+        msg.add_option(option_3).unwrap();
+        msg.set_token(&[100, 101]).unwrap();
+        let mut raw_msg = msg.encode().unwrap();
+        let resp = server.handle_message(&mut raw_msg.0);
+
+        let expected_response = [98, 132, 0, 123];
         let mut ex_resp = Vec::<u8, U255>::from_slice(&expected_response).unwrap();
         ex_resp.truncate(expected_response.len());
 
