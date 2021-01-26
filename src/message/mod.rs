@@ -146,14 +146,13 @@ impl CoapMessage {
         }
         if self.options.len() != 0 {
             let mut prev_option = option::CoapOptionNumbers::Zero;
-            for _i in 0..self.options.len() {
-                let option = self.options.pop()?;
-                let o = option.encode(prev_option)?;
+            for opt in self.options.options.iter() {
+                let o = opt.encode(prev_option)?;
                 for j in 0..o.1 {
                     msg[index] = o.0[j];
                     index += 1;
                 }
-                prev_option = option.get_option_number();
+                prev_option = opt.get_option_number();
             }
         }
         if self.payload_length != 0 {

@@ -80,7 +80,7 @@ impl From<CoapOptionNumbers> for u8 {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct CoapOptions {
-    options: Vec<CoapOption, U10>,
+    pub options: Vec<CoapOption, U10>,
     length: usize,
 }
 
@@ -103,31 +103,24 @@ impl CoapOptions {
             Err(e) => Err(CoapError::OptionsError(CoapOptionError::PushError(e))),
         }
     }
-    pub fn pop(&mut self) -> Result<CoapOption, CoapError> {
-        let mut smallest_option: u8 = 255;
-        let mut index = self.options.len() + 1;
-        for i in 0..self.length {
-            let tmp = self.options[i].get_option_number().into();
-            if tmp < smallest_option {
-                smallest_option = tmp;
-                index = i;
-            }
-        }
-        if index > self.options.len() {
-            return Err(CoapError::OptionsError(CoapOptionError::PopError));
-        }
-        let option: CoapOption = self.options.swap_remove(index);
-        self.length -= 1;
-
-        Ok(option)
-        //match self.options.pop() {
-        //    Some(e) => {
-        //        self.length -= 1;
-        //        Ok(e)
-        //    }
-        //    None => Err(CoapError::OptionsError(CoapOptionError::PopError)),
-        //}
-    }
+    //pub fn pop(&mut self) -> Result<CoapOption, CoapError> {
+    //    let mut smallest_option: u8 = 255;
+    //    let mut index = self.options.len() + 1;
+    //    for i in 0..self.length {
+    //        let tmp = self.options[i].get_option_number().into();
+    //        if tmp < smallest_option {
+    //            smallest_option = tmp;
+    //            index = i;
+    //        }
+    //    }
+    //    if index > self.options.len() {
+    //        return Err(CoapError::OptionsError(CoapOptionError::PopError));
+    //    }
+    //    let option: CoapOption = self.options.swap_remove(index);
+    //    self.length -= 1;
+    //
+    //    Ok(option)
+    //}
 
     pub fn decode(buf: &mut [u8]) -> Result<(Self, &[u8]), CoapError> {
         let mut index: usize = 0;

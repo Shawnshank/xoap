@@ -9,12 +9,14 @@ mod message;
 
 use message::header::CoapHeader;
 use message::header::{CoapHeaderCode, CoapHeaderType};
+use message::option::{CoapOption, CoapOptions};
+use message::option::{CoapOptionNumbers, CoapOptionError};
 
 #[derive(Debug)]
 pub enum CoapError {
     ConfigError,
-    OptionError(message::option::CoapOptionError),
-    OptionsError(message::option::CoapOptionError),
+    OptionError(CoapOptionError),
+    OptionsError(CoapOptionError),
     HeaderError,
     MessageError,
 }
@@ -67,35 +69,35 @@ impl<'a> CoapServer<'a> {
         CoapServer { config, buffer }
     }
     pub fn handle_message(self, msg: &mut [u8]) -> Vec<u8, U255> {
-        let requset = match message::CoapMessage::decode(msg) {
+        let request = match message::CoapMessage::decode(msg) {
             Ok(msg) => msg,
             Err(_) => panic!(), // Handle error with specific coap response message
         };
 
-        let response = match requset.header.get_code() {
+        let response = match request.header.get_code() {
             CoapHeaderCode::EMPTY => {
                 let header = CoapHeader::new(
                     CoapHeaderType::Reset,
-                    requset.header.get_tkl(),
+                    request.header.get_tkl(),
                     CoapHeaderCode::EMPTY,
-                    requset.header.get_message_id(),
+                    request.header.get_message_id(),
                 );
                 let message = message::CoapMessage::new(header, &[]);
                 Some(message)
             }
-            CoapHeaderCode::GET => self.handle_get(requset),
-            CoapHeaderCode::POST => self.handle_post(requset),
-            CoapHeaderCode::PUT => self.handle_put(requset),
-            CoapHeaderCode::DELETE => self.handle_delete(requset),
-            _ => match requset.header.get_type() {
+            CoapHeaderCode::GET => self.handle_get(request),
+            CoapHeaderCode::POST => self.handle_post(request),
+            CoapHeaderCode::PUT => self.handle_put(request),
+            CoapHeaderCode::DELETE => self.handle_delete(request),
+            _ => match request.header.get_type() {
                 CoapHeaderType::Confirmable
                 | CoapHeaderType::Reset
                 | CoapHeaderType::Acknowledgement => {
                     let header = CoapHeader::new(
                         CoapHeaderType::Acknowledgement,
-                        requset.header.get_tkl(),
+                        request.header.get_tkl(),
                         CoapHeaderCode::MethodNotAllowed,
-                        requset.header.get_message_id(),
+                        request.header.get_message_id(),
                     );
                     let message = message::CoapMessage::new(header, &[]);
                     Some(message)
@@ -103,9 +105,9 @@ impl<'a> CoapServer<'a> {
                 CoapHeaderType::NonConfirmable => {
                     let header = CoapHeader::new(
                         CoapHeaderType::NonConfirmable,
-                        requset.header.get_tkl(),
+                        request.header.get_tkl(),
                         CoapHeaderCode::MethodNotAllowed,
-                        requset.header.get_message_id(),
+                        request.header.get_message_id(),
                     );
                     let message = message::CoapMessage::new(header, &[]);
                     Some(message)
@@ -122,32 +124,41 @@ impl<'a> CoapServer<'a> {
 
     fn handle_get(self, mut msg: message::CoapMessage) -> Option<message::CoapMessage> {
         let mut payload: u8 = 0;
-        while msg.options.len() > 0 {
-            let option = msg.options.pop().unwrap();
-            match option.get_option_number() {
-                message::option::CoapOptionNumbers::UriPath => {
-                    for res in self.config.resources.iter() {
-                        if option.get_option_data() == res.get_path().into_bytes() {
-                            payload = res.callback()();
-                        }
+        let mut uri_path: String<U255> = String::new();
+        let mut amount_of_uri_path_options: usize = 0;
+        for opt in msg.options.options.iter() {
+            match opt.get_option_number() {
+                CoapOptionNumbers::UriPath => {
+                    if amount_of_uri_path_options != 0 {
+                        uri_path.push_str("/").unwrap();
                     }
-                    if payload == 0 {
-                        let header_type = CoapHeaderType::Acknowledgement;
-                        let header_code = CoapHeaderCode::NotFound;
-                        let header = CoapHeader::new(
-                            header_type,
-                            msg.header.get_tkl(),
-                            header_code,
-                            msg.header.get_message_id(),
-                        );
-                        let response = message::CoapMessage::new(header, &[]);
-                        return Some(response);
-                    }
-                }
-                // Add more options
+                    amount_of_uri_path_options += 1;
+                    uri_path.push_str(String::from_utf8(opt.get_option_data()).unwrap().as_str()).unwrap();
+                },
                 _ => panic!(),
             }
         }
+        if amount_of_uri_path_options > 0 {
+            for res in self.config.resources.iter() {
+                if uri_path == res.get_path() {
+                    payload = res.callback()();
+                }
+            }
+        }
+
+        if payload == 0 {
+            let header_type = CoapHeaderType::Acknowledgement;
+            let header_code = CoapHeaderCode::NotFound;
+            let header = CoapHeader::new(
+                header_type,
+                msg.header.get_tkl(),
+                header_code,
+                msg.header.get_message_id(),
+            );
+            let response = message::CoapMessage::new(header, &[]);
+            return Some(response);
+        }
+
         if msg.header.get_type() == CoapHeaderType::Confirmable {
             let header_type = CoapHeaderType::Acknowledgement;
             let header_code = CoapHeaderCode::Content;
@@ -194,14 +205,14 @@ mod tests {
     #[test]
     fn resource_calling() {
         let mut config = CoapConfig::new();
-        config.add_resource(dummy_function, "test");
+        config.add_resource(test, "test");
         let mut buffer: [u8; 1024] = [0; 1024];
         let server = CoapServer::new(config, &mut buffer);
 
         let header = CoapHeader::new(CoapHeaderType::Confirmable, 2, CoapHeaderCode::GET, 123);
         let mut msg = message::CoapMessage::new(header, &[1, 2]);
-        let option = message::option::CoapOption::new(
-            message::option::CoapOptionNumbers::UriPath,
+        let option = CoapOption::new(
+            CoapOptionNumbers::UriPath,
             "test".as_bytes(),
         );
         msg.add_option(option).unwrap();
@@ -209,15 +220,60 @@ mod tests {
         let mut raw_msg = msg.encode().unwrap();
         let resp = server.handle_message(&mut raw_msg.0);
 
-        let expected_response = [98, 69, 0, 123, 255, dummy_function()];
+        let expected_response = [98, 69, 0, 123, 255, test()];
         let mut ex_resp = Vec::<u8, U255>::from_slice(&expected_response).unwrap();
         ex_resp.truncate(expected_response.len());
 
         assert_eq!(ex_resp, resp);
     }
 
-    fn dummy_function() -> u8 {
+    fn test() -> u8 {
         assert_eq!("foo", "foo");
         1
+    }
+
+    fn test_level() -> u8 {
+        2
+    }
+
+    fn test_level_cheese() -> u8 {
+        3
+    }
+    #[test]
+    fn multiple_uri_path() {
+        let mut config = CoapConfig::new();
+        config.add_resource(test, "test");
+        config.add_resource(test_level, "test/level");
+        config.add_resource(test_level_cheese, "test/level/cheese");
+
+        let mut buffer: [u8; 1024] = [0; 1024];
+        let server = CoapServer::new(config, &mut buffer);
+
+        let header = CoapHeader::new(CoapHeaderType::Confirmable, 2, CoapHeaderCode::GET, 123);
+        let mut msg = message::CoapMessage::new(header, &[1, 2]);
+        let option = CoapOption::new(
+            CoapOptionNumbers::UriPath,
+            "test".as_bytes(),
+        );
+        let option_2 = CoapOption::new(
+            CoapOptionNumbers::UriPath,
+            "level".as_bytes(),
+        );
+        let option_3 = CoapOption::new(
+            CoapOptionNumbers::UriPath,
+            "cheese".as_bytes(),
+        );
+        msg.add_option(option).unwrap();
+        msg.add_option(option_2).unwrap();
+        msg.add_option(option_3).unwrap();
+        msg.set_token(&[100, 101]).unwrap();
+        let mut raw_msg = msg.encode().unwrap();
+        let resp = server.handle_message(&mut raw_msg.0);
+
+        let expected_response = [98, 69, 0, 123, 255, test_level_cheese()];
+        let mut ex_resp = Vec::<u8, U255>::from_slice(&expected_response).unwrap();
+        ex_resp.truncate(expected_response.len());
+
+        assert_eq!(ex_resp, resp);
     }
 }
