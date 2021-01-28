@@ -3,9 +3,8 @@
 #![allow(dead_code)]
 #![deny(missing_docs)]
 
-
 //! XoAP - CoAP for Embedded systems w/o allocator
-//! 
+//!
 
 use heapless::consts::*;
 use heapless::{String, Vec};
@@ -14,9 +13,7 @@ mod message;
 
 use message::header::CoapHeader;
 use message::header::{CoapHeaderCode, CoapHeaderType};
-use message::option::{CoapOption, CoapOptions};
-use message::option::{CoapOptionNumbers, CoapOptionError};
-
+use message::option::{CoapOptionError, CoapOptionNumbers};
 
 #[derive(Debug)]
 pub(crate) enum CoapError {
@@ -29,9 +26,9 @@ pub(crate) enum CoapError {
 
 /// A CoAP resource, an endpoint that is being requested.
 /// For example ```house/livingroom/temperature```
-/// 
+///
 /// Takes the endpoint path and a callback function that will be executed when the enpoint is called
-/// 
+///
 #[derive(Debug, Clone)]
 pub struct CoapResource {
     callback: fn() -> u8,
@@ -143,7 +140,7 @@ impl<'a> CoapServer<'a> {
         msg_resp
     }
 
-    fn handle_get(self, mut msg: message::CoapMessage) -> Option<message::CoapMessage> {
+    fn handle_get(self, msg: message::CoapMessage) -> Option<message::CoapMessage> {
         let mut payload: u8 = 0;
         let mut uri_path: String<U255> = String::new();
         let mut amount_of_uri_path_options: usize = 0;
@@ -154,8 +151,10 @@ impl<'a> CoapServer<'a> {
                         uri_path.push_str("/").unwrap();
                     }
                     amount_of_uri_path_options += 1;
-                    uri_path.push_str(String::from_utf8(opt.get_option_data()).unwrap().as_str()).unwrap();
-                },
+                    uri_path
+                        .push_str(String::from_utf8(opt.get_option_data()).unwrap().as_str())
+                        .unwrap();
+                }
                 _ => panic!(),
             }
         }
@@ -223,6 +222,7 @@ impl<'a> CoapServer<'a> {
 #[cfg(test)]
 mod tests {
     use crate::*;
+    use message::option::CoapOption;
     #[test]
     fn resource_calling() {
         let mut config = CoapConfig::new();
@@ -232,10 +232,7 @@ mod tests {
 
         let header = CoapHeader::new(CoapHeaderType::Confirmable, 2, CoapHeaderCode::GET, 123);
         let mut msg = message::CoapMessage::new(header, &[1, 2]);
-        let option = CoapOption::new(
-            CoapOptionNumbers::UriPath,
-            "test".as_bytes(),
-        );
+        let option = CoapOption::new(CoapOptionNumbers::UriPath, "test".as_bytes());
         msg.add_option(option).unwrap();
         msg.set_token(&[100, 101]).unwrap();
         let mut raw_msg = msg.encode().unwrap();
@@ -273,18 +270,9 @@ mod tests {
 
         let header = CoapHeader::new(CoapHeaderType::Confirmable, 2, CoapHeaderCode::GET, 123);
         let mut msg = message::CoapMessage::new(header, &[1, 2]);
-        let option = CoapOption::new(
-            CoapOptionNumbers::UriPath,
-            "test".as_bytes(),
-        );
-        let option_2 = CoapOption::new(
-            CoapOptionNumbers::UriPath,
-            "level".as_bytes(),
-        );
-        let option_3 = CoapOption::new(
-            CoapOptionNumbers::UriPath,
-            "cheese".as_bytes(),
-        );
+        let option = CoapOption::new(CoapOptionNumbers::UriPath, "test".as_bytes());
+        let option_2 = CoapOption::new(CoapOptionNumbers::UriPath, "level".as_bytes());
+        let option_3 = CoapOption::new(CoapOptionNumbers::UriPath, "cheese".as_bytes());
         msg.add_option(option).unwrap();
         msg.add_option(option_2).unwrap();
         msg.add_option(option_3).unwrap();
@@ -311,18 +299,9 @@ mod tests {
 
         let header = CoapHeader::new(CoapHeaderType::Confirmable, 2, CoapHeaderCode::GET, 123);
         let mut msg = message::CoapMessage::new(header, &[1, 2]);
-        let option = CoapOption::new(
-            CoapOptionNumbers::UriPath,
-            "test".as_bytes(),
-        );
-        let option_2 = CoapOption::new(
-            CoapOptionNumbers::UriPath,
-            "level".as_bytes(),
-        );
-        let option_3 = CoapOption::new(
-            CoapOptionNumbers::UriPath,
-            "wrongEndpoint".as_bytes(),
-        );
+        let option = CoapOption::new(CoapOptionNumbers::UriPath, "test".as_bytes());
+        let option_2 = CoapOption::new(CoapOptionNumbers::UriPath, "level".as_bytes());
+        let option_3 = CoapOption::new(CoapOptionNumbers::UriPath, "wrongEndpoint".as_bytes());
         msg.add_option(option).unwrap();
         msg.add_option(option_2).unwrap();
         msg.add_option(option_3).unwrap();

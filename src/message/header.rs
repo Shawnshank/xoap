@@ -105,11 +105,11 @@ impl From<CoapHeaderCode> for u8 {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CoapHeader {
-    version: u8,       // u2
-    t: CoapHeaderType, // u2
-    tkl: u8,           // u4
-    code: CoapHeaderCode,
-    message_id: u16,
+    version: u8,          // u2
+    t: CoapHeaderType,    // u2
+    tkl: u8,              // u4
+    code: CoapHeaderCode, // u8
+    message_id: u16,      // u16
 }
 
 impl Copy for CoapHeader {}

@@ -13,29 +13,6 @@ pub enum CoapMethod {
     DELETE,
 }
 
-impl From<u8> for CoapMethod {
-    fn from(item: u8) -> Self {
-        match item {
-            1 => CoapMethod::GET,
-            2 => CoapMethod::POST,
-            3 => CoapMethod::PUT,
-            4 => CoapMethod::DELETE,
-            _ => unreachable!(),
-        }
-    }
-}
-
-impl From<CoapMethod> for u8 {
-    fn from(item: CoapMethod) -> Self {
-        match item {
-            CoapMethod::GET => 1,
-            CoapMethod::POST => 2,
-            CoapMethod::PUT => 3,
-            CoapMethod::DELETE => 4,
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CoapMediaType {
     TextPlain,
@@ -44,33 +21,6 @@ pub enum CoapMediaType {
     ApplicationOctetStream,
     ApplicationExi,
     ApplicationJson,
-}
-
-impl From<u8> for CoapMediaType {
-    fn from(item: u8) -> Self {
-        match item {
-            0 => CoapMediaType::TextPlain,
-            40 => CoapMediaType::ApplicationLinkFormat,
-            41 => CoapMediaType::ApplicationXml,
-            42 => CoapMediaType::ApplicationOctetStream,
-            47 => CoapMediaType::ApplicationExi,
-            50 => CoapMediaType::ApplicationJson,
-            _ => unreachable!(),
-        }
-    }
-}
-
-impl From<CoapMediaType> for u8 {
-    fn from(item: CoapMediaType) -> Self {
-        match item {
-            CoapMediaType::TextPlain => 0,
-            CoapMediaType::ApplicationLinkFormat => 40,
-            CoapMediaType::ApplicationXml => 41,
-            CoapMediaType::ApplicationOctetStream => 42,
-            CoapMediaType::ApplicationExi => 47,
-            CoapMediaType::ApplicationJson => 50,
-        }
-    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -194,6 +144,56 @@ impl CoapMessage {
         new_message.options = options;
 
         Ok(new_message)
+    }
+}
+
+impl From<u8> for CoapMethod {
+    fn from(item: u8) -> Self {
+        match item {
+            1 => CoapMethod::GET,
+            2 => CoapMethod::POST,
+            3 => CoapMethod::PUT,
+            4 => CoapMethod::DELETE,
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl From<CoapMethod> for u8 {
+    fn from(item: CoapMethod) -> Self {
+        match item {
+            CoapMethod::GET => 1,
+            CoapMethod::POST => 2,
+            CoapMethod::PUT => 3,
+            CoapMethod::DELETE => 4,
+        }
+    }
+}
+
+impl From<u8> for CoapMediaType {
+    fn from(item: u8) -> Self {
+        match item {
+            0 => CoapMediaType::TextPlain,
+            40 => CoapMediaType::ApplicationLinkFormat,
+            41 => CoapMediaType::ApplicationXml,
+            42 => CoapMediaType::ApplicationOctetStream,
+            47 => CoapMediaType::ApplicationExi,
+            50 => CoapMediaType::ApplicationJson,
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl From<CoapMediaType> for u8 {
+    fn from(item: CoapMediaType) -> Self {
+        match item {
+            CoapMediaType::TextPlain => 0,
+            CoapMediaType::ApplicationLinkFormat => 40,
+            CoapMediaType::ApplicationXml => 41,
+            CoapMediaType::ApplicationOctetStream => 42,
+            CoapMediaType::ApplicationExi => 47,
+            CoapMediaType::ApplicationJson => 50,
+        }
     }
 }
 
