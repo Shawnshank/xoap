@@ -115,7 +115,7 @@ impl CoapMessage {
         }
     }
 
-    pub fn set_token(&mut self, token: &[u8]) -> Result<(), CoapError> {
+    pub(crate) fn set_token(&mut self, token: &[u8]) -> Result<(), CoapError> {
         if token.len() > 8 {
             return Err(CoapError::MessageError);
         }
@@ -125,12 +125,12 @@ impl CoapMessage {
         Ok(())
     }
 
-    pub fn add_option(&mut self, option: option::CoapOption) -> Result<(), CoapError> {
+    pub(crate) fn add_option(&mut self, option: option::CoapOption) -> Result<(), CoapError> {
         self.options.push(option)?;
         Ok(())
     }
 
-    pub fn encode(&mut self) -> Result<([u8; 255], usize), CoapError> {
+    pub(crate) fn encode(&mut self) -> Result<([u8; 255], usize), CoapError> {
         let mut index = 0;
         let mut msg: [u8; 255] = [0; 255];
         let header = self.header.encode();
@@ -167,7 +167,7 @@ impl CoapMessage {
         Ok((msg, index))
     }
 
-    pub fn decode(buf: &mut [u8]) -> Result<Self, CoapError> {
+    pub(crate) fn decode(buf: &mut [u8]) -> Result<Self, CoapError> {
         if buf.len() < 4 {
             return Err(CoapError::MessageError);
         }

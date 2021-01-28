@@ -1,6 +1,11 @@
 #![no_std]
 #![feature(exclusive_range_pattern)]
 #![allow(dead_code)]
+#![deny(missing_docs)]
+
+
+//! XoAP - CoAP for Embedded systems w/o allocator
+//! 
 
 use heapless::consts::*;
 use heapless::{String, Vec};
@@ -12,8 +17,9 @@ use message::header::{CoapHeaderCode, CoapHeaderType};
 use message::option::{CoapOption, CoapOptions};
 use message::option::{CoapOptionNumbers, CoapOptionError};
 
+
 #[derive(Debug)]
-pub enum CoapError {
+pub(crate) enum CoapError {
     ConfigError,
     OptionError(CoapOptionError),
     OptionsError(CoapOptionError),
@@ -21,6 +27,11 @@ pub enum CoapError {
     MessageError,
 }
 
+/// A CoAP resource, an endpoint that is being requested.
+/// For example ```house/livingroom/temperature```
+/// 
+/// Takes the endpoint path and a callback function that will be executed when the enpoint is called
+/// 
 #[derive(Debug, Clone)]
 pub struct CoapResource {
     callback: fn() -> u8,
@@ -28,26 +39,31 @@ pub struct CoapResource {
 }
 
 impl CoapResource {
+    /// Returns the enpoint path for the particular resource
     pub fn get_path(&self) -> String<U255> {
         self.path.clone()
     }
 
+    /// Returns the callback function associated with the particular resource
     pub fn callback(&self) -> fn() -> u8 {
         self.callback
     }
 }
 
+/// CoAP server/client configuration struct.
+/// Needs to be passed to the server/client during creation
 pub struct CoapConfig {
     resources: Vec<CoapResource, U8>,
 }
 
 impl CoapConfig {
+    /// Creates a new vector of (empty) resources
     pub fn new() -> Self {
         CoapConfig {
             resources: Vec::<CoapResource, U8>::new(),
         }
     }
-
+    /// Adds a resource to the configuration
     pub fn add_resource(&mut self, cb: fn() -> u8, path: &str) /*-> Result<(), CoapError>*/
     {
         let res = CoapResource {
@@ -59,19 +75,24 @@ impl CoapConfig {
     }
 }
 
+/// CoAP server.
+/// Creates a CoAP server acting behavoir.
+/// Takes a CoAP config struct and a buffer for message storage.
 pub struct CoapServer<'a> {
     config: CoapConfig,
     buffer: &'a [u8],
 }
 
 impl<'a> CoapServer<'a> {
+    /// Creates a new CoAP server
     pub fn new(config: CoapConfig, buffer: &'a mut [u8]) -> Self {
         CoapServer { config, buffer }
     }
+    /// Handels a message and returns the response to be sent of to the request owner
     pub fn handle_message(self, msg: &mut [u8]) -> Vec<u8, U255> {
         let request = match message::CoapMessage::decode(msg) {
             Ok(msg) => msg,
-            Err(_) => panic!(), // Handle error with specific coap response message
+            Err(_) => panic!(), // TODO: Handle error with specific coap response message
         };
 
         let response = match request.header.get_code() {

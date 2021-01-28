@@ -3,7 +3,7 @@ use heapless::consts::*;
 use heapless::Vec;
 
 #[derive(Debug)]
-pub enum CoapOptionError {
+pub(crate) enum CoapOptionError {
     PushError(CoapOption),
     PopError,
     DeltaError(u8),
@@ -94,7 +94,7 @@ impl CoapOptions {
     pub fn len(&self) -> usize {
         self.length
     }
-    pub fn push(&mut self, option: CoapOption) -> Result<(), CoapError> {
+    pub(crate) fn push(&mut self, option: CoapOption) -> Result<(), CoapError> {
         match self.options.push(option) {
             Ok(_) => {
                 self.length += 1;
@@ -122,7 +122,7 @@ impl CoapOptions {
     //    Ok(option)
     //}
 
-    pub fn decode(buf: &mut [u8]) -> Result<(Self, &[u8]), CoapError> {
+    pub(crate) fn decode(buf: &mut [u8]) -> Result<(Self, &[u8]), CoapError> {
         let mut index: usize = 0;
         let mut options: CoapOptions = CoapOptions::new();
         let mut ret: &[u8] = buf;
@@ -181,7 +181,7 @@ impl CoapOption {
     pub fn get_option_data(&self) -> Vec<u8, U255> {
         self.data.clone()
     }
-    pub fn encode(&self, prev_option: CoapOptionNumbers) -> Result<([u8; 255], usize), CoapError> {
+    pub(crate) fn encode(&self, prev_option: CoapOptionNumbers) -> Result<([u8; 255], usize), CoapError> {
         let mut v: [u8; 255] = [0; 255];
         let o: u8 = self.option.clone().into();
         let po: u8 = prev_option.into();
@@ -224,7 +224,7 @@ impl CoapOption {
         Ok((v, length))
     }
 
-    pub fn decode(prev_option_number: u8, buf: &[u8]) -> Result<CoapOption, CoapError> {
+    pub(crate) fn decode(prev_option_number: u8, buf: &[u8]) -> Result<CoapOption, CoapError> {
         let d = buf[0] >> 4;
         let mut byte_offset = 0;
         let delta: u8 = match d {
