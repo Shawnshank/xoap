@@ -1,3 +1,4 @@
+use crate::CoapError;
 #[derive(Debug, Clone, PartialEq)]
 pub enum CoapHeaderCode {
     EMPTY,
@@ -156,29 +157,37 @@ impl CoapHeader {
             message_id,
         }
     }
-    pub fn encode(&self) -> [u8; 4] {
+    pub fn encode(&self) -> Result<[u8; 4], CoapError> {
         let t: u8 = self.t.into();
         let vtt: u8 = (self.version << 6) | (t << 4) | self.tkl;
         let code: u8 = self.code.into();
+
+        if self.code == CoapHeaderCode::EMPTY && self.tkl > 0 {
+            return Err(CoapError::MessageFormatError);
+        }
         let msg_2: u8 = (self.message_id & 255) as u8;
         let msg_1: u8 = (self.message_id >> 8) as u8;
 
-        [vtt, code, msg_1, msg_2]
+        Ok([vtt, code, msg_1, msg_2])
     }
-    pub fn decode(buf: &[u8]) -> CoapHeader {
+    pub fn decode(buf: &[u8]) -> Result<CoapHeader, CoapError> {
         let version: u8 = buf[0] >> 6;
         let t: CoapHeaderType = ((buf[0] << 2) >> 6).into();
         let tkl: u8 = buf[0] & 15;
         let code: CoapHeaderCode = buf[1].into();
+
+        if code == CoapHeaderCode::EMPTY && tkl > 0 {
+            return Err(CoapError::MessageFormatError);
+        }
         let message_id: u16 = (buf[2] as u16) << 8 | buf[3] as u16;
 
-        CoapHeader {
+        Ok(CoapHeader {
             version,
             t,
             tkl,
             code,
             message_id,
-        }
+        })
     }
     pub fn get_version(&self) -> u8 {
         self.version
@@ -208,8 +217,8 @@ mod tests {
             CoapHeaderCode::Changed,
             123,
         );
-        let en_header = header.encode();
-        let de_header = CoapHeader::decode(&en_header);
+        let en_header = header.encode().unwrap();
+        let de_header = CoapHeader::decode(&en_header).unwrap();
 
         assert_eq!(de_header.version, 1);
         assert_eq!(de_header.t, CoapHeaderType::Acknowledgement);

@@ -51,7 +51,7 @@ impl CoapOptions {
                     0..12 => (d as u16, 0),
                     13 => (ret[1] as u16 + 13, 1),
                     14 => (buf[index + 2] as u16 + 269, 2),
-                    e => return Err(CoapError::OptionsError(CoapOptionError::DeltaError(e))),
+                    _ => return Err(CoapError::MessageFormatError),
                 };
                 let length_bytes: u16 = match l {
                     0..12 => l as u16,
@@ -60,7 +60,7 @@ impl CoapOptions {
                         2 + (((ret[1 + delta.1] as u16) << 8u8) as u16 | ret[2 + delta.1] as u16)
                             + 269
                     }
-                    e => return Err(CoapError::OptionsError(CoapOptionError::LengthError(e))),
+                    _ => return Err(CoapError::MessageFormatError),
                 };
                 let split_index = 1 + delta.1 + length_bytes as usize;
                 index += split_index;

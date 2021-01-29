@@ -67,7 +67,7 @@ impl CoapMessage {
 
     pub(crate) fn set_token(&mut self, token: &[u8]) -> Result<(), CoapError> {
         if token.len() > 8 {
-            return Err(CoapError::MessageError);
+            return Err(CoapError::MessageFormatError);
         }
         self.token.length = token.len();
         self.token.token = Vec::from_slice(token).unwrap();
@@ -83,7 +83,7 @@ impl CoapMessage {
     pub(crate) fn encode(&mut self) -> Result<([u8; 255], usize), CoapError> {
         let mut index = 0;
         let mut msg: [u8; 255] = [0; 255];
-        let header = self.header.encode();
+        let header = self.header.encode()?;
         for i in &header {
             msg[index] = *i;
             index += 1;
@@ -122,8 +122,11 @@ impl CoapMessage {
             return Err(CoapError::MessageError);
         }
         let (raw_header, mut rest) = buf.split_at_mut(4);
-        let header = header::CoapHeader::decode(raw_header);
+        let header = header::CoapHeader::decode(raw_header)?;
         let mut token: &[u8] = &[];
+        if header.get_tkl() > 8 {
+            return Err(CoapError::MessageFormatError);
+        }
         if header.get_tkl() != 0 {
             let tok = rest.split_at_mut(header.get_tkl() as usize);
             token = tok.0;
@@ -132,13 +135,13 @@ impl CoapMessage {
         if rest.len() == 0 {
             return Ok(CoapMessage::new(header, &[0]));
         }
-        //assert_eq!(rest, &[0]);
         let (options, mut rest) = option::CoapOptions::decode(rest)?;
 
         if rest.len() > 1 && rest[0] == 0xff {
             rest = &rest[1..];
+        } else if rest.len() == 1 && rest[0] == 0xff{
+            return Err(CoapError::MessageError);
         }
-        //assert_eq!(rest, &[0]);
         let mut new_message: CoapMessage = CoapMessage::new(header, rest);
         new_message.set_token(token)?;
         new_message.options = options;

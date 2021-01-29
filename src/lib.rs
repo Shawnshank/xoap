@@ -22,6 +22,7 @@ pub(crate) enum CoapError {
     OptionsError(CoapOptionError),
     HeaderError,
     MessageError,
+    MessageFormatError,
 }
 
 /// A CoAP resource, an endpoint that is being requested.
