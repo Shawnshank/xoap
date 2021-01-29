@@ -225,7 +225,7 @@ mod tests {
         assert_eq!(en_msg.1, 4 + 1 + data.len());
 
         // Check header
-        let de_header = header::CoapHeader::decode(&en_msg.0[0..4]);
+        let de_header = header::CoapHeader::decode(&en_msg.0[0..4]).unwrap();
         assert_eq!(header, de_header);
     }
 
