@@ -2,16 +2,6 @@ use crate::CoapError;
 use heapless::consts::*;
 use heapless::Vec;
 
-#[derive(Debug)]
-pub(crate) enum CoapOptionError {
-    PushError(CoapOption),
-    PopError,
-    DeltaError(u8),
-    LengthError(u8),
-    WrongOptionOrder,
-    Overflow,
-}
-
 #[derive(Clone, Debug, PartialEq)]
 pub struct CoapOptions {
     pub options: Vec<CoapOption, U10>,
@@ -34,7 +24,7 @@ impl CoapOptions {
                 self.length += 1;
                 Ok(())
             }
-            Err(e) => Err(CoapError::OptionsError(CoapOptionError::PushError(e))),
+            Err(_) => Err(CoapError::InternalServerError),
         }
     }
 
@@ -106,13 +96,13 @@ impl CoapOption {
         let po: u8 = prev_option.into();
         // Check so that we are encoding the options in order
         if po > o {
-            return Err(CoapError::OptionError(CoapOptionError::WrongOptionOrder));
+            return Err(CoapError::BadOption);
         }
         let option_delta = o - po;
         let option_length = self.data.len() as u8;
         // TODO: make the correct assumtion regarding available length, not just 254 bytes
         if option_length > 254 {
-            return Err(CoapError::OptionError(CoapOptionError::Overflow));
+            return Err(CoapError::InternalServerError);
         }
         let mut byte_offset = 0;
         match option_delta {
@@ -122,7 +112,7 @@ impl CoapOption {
                 v[1] = option_delta - 13;
                 byte_offset += 1;
             }
-            e => return Err(CoapError::OptionError(CoapOptionError::DeltaError(e))),
+            _ => return Err(CoapError::BadOption),
         }
 
         match option_length {
@@ -132,7 +122,7 @@ impl CoapOption {
                 v[1] = option_length - 13;
                 byte_offset += 1;
             }
-            e => return Err(CoapError::OptionError(CoapOptionError::LengthError(e))),
+            _ => return Err(CoapError::BadOption),
         }
         let mut index = 1 + byte_offset;
         for i in &self.data {
@@ -153,7 +143,7 @@ impl CoapOption {
                 (buf[1] + 13) as u16
             }
             14 => ((buf[1] as u16) << 8 | buf[2] as u16) + 269,
-            e => return Err(CoapError::OptionError(CoapOptionError::DeltaError(e))),
+            _ => return Err(CoapError::BadOption),
         };
         let option: CoapOptionNumbers = (prev_option_number as u16 + delta).into();
         let l = buf[0] & 15;
@@ -169,7 +159,7 @@ impl CoapOption {
                 byte_offset += 2;
                 len
             }
-            e => return Err(CoapError::OptionError(CoapOptionError::LengthError(e))),
+            _ => return Err(CoapError::BadOption),
         };
 
         let mut data = Vec::<u8, U255>::new();

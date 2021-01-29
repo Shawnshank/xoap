@@ -139,7 +139,7 @@ impl CoapMessage {
 
         if rest.len() > 1 && rest[0] == 0xff {
             rest = &rest[1..];
-        } else if rest.len() == 1 && rest[0] == 0xff{
+        } else if rest.len() == 1 && rest[0] == 0xff {
             return Err(CoapError::MessageError);
         }
         let mut new_message: CoapMessage = CoapMessage::new(header, rest);
@@ -214,7 +214,8 @@ mod tests {
             0,
             header::CoapHeaderCode::Content,
             123,
-        );
+        )
+        .unwrap();
         let mut msg = message::CoapMessage::new(header.clone(), &data);
         let en_msg = msg.encode().unwrap();
 
@@ -237,7 +238,8 @@ mod tests {
             0,
             header::CoapHeaderCode::Content,
             123,
-        );
+        )
+        .unwrap();
         let mut msg = message::CoapMessage::new(header.clone(), &data);
         let mut en_msg = msg.encode().unwrap();
         let buf = &mut en_msg.0[..en_msg.1];
@@ -253,7 +255,8 @@ mod tests {
             3,
             header::CoapHeaderCode::Content,
             123,
-        );
+        )
+        .unwrap();
         let mut msg = message::CoapMessage::new(header.clone(), &data);
         msg.set_token(&[100, 111, 122]).unwrap();
         let mut en_msg = msg.encode().unwrap();
@@ -270,7 +273,8 @@ mod tests {
             3,
             header::CoapHeaderCode::Content,
             123,
-        );
+        )
+        .unwrap();
         let mut msg = message::CoapMessage::new(header.clone(), &data);
         msg.set_token(&[100, 111, 122]).unwrap();
         msg.add_option(option::CoapOption::new(
@@ -295,7 +299,8 @@ mod tests {
             3,
             header::CoapHeaderCode::Content,
             123,
-        );
+        )
+        .unwrap();
         let mut msg = message::CoapMessage::new(header.clone(), &data);
         msg.set_token(&[100, 111, 122]).unwrap();
         msg.add_option(option::CoapOption::new(

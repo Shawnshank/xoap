@@ -1,4 +1,5 @@
 use crate::CoapError;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum CoapHeaderCode {
     EMPTY,
@@ -29,6 +30,122 @@ pub enum CoapHeaderCode {
     ServiceUnavailable,
     GatewayTimeout,
     ProxyingNotSupported,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CoapHeader {
+    version: u8,          // u2
+    t: CoapHeaderType,    // u2
+    tkl: u8,              // u4
+    code: CoapHeaderCode, // u8
+    message_id: u16,      // u16
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum CoapHeaderType {
+    Confirmable,
+    NonConfirmable,
+    Acknowledgement,
+    Reset,
+}
+
+impl CoapHeader {
+    pub(crate) fn new(
+        t: CoapHeaderType,
+        tkl: u8,
+        code: CoapHeaderCode,
+        message_id: u16,
+    ) -> Result<Self, CoapError> {
+        if code == CoapHeaderCode::EMPTY && tkl > 0 {
+            return Err(CoapError::MessageFormatError);
+        }
+        Ok(CoapHeader {
+            version: 0x1,
+            t,
+            tkl,
+            code,
+            message_id,
+        })
+    }
+    pub(crate) fn encode(&self) -> Result<[u8; 4], CoapError> {
+        if self.version != 1 {
+            return Err(CoapError::WrongVersion);
+        }
+        let t: u8 = self.t.into();
+        let vtt: u8 = (self.version << 6) | (t << 4) | self.tkl;
+        let code: u8 = self.code.into();
+
+        if self.code == CoapHeaderCode::EMPTY && self.tkl > 0 {
+            return Err(CoapError::MessageFormatError);
+        }
+        let msg_2: u8 = (self.message_id & 255) as u8;
+        let msg_1: u8 = (self.message_id >> 8) as u8;
+
+        Ok([vtt, code, msg_1, msg_2])
+    }
+    pub(crate) fn decode(buf: &[u8]) -> Result<CoapHeader, CoapError> {
+        let version: u8 = buf[0] >> 6;
+        if version != 1 {
+            return Err(CoapError::WrongVersion);
+        }
+        let t: CoapHeaderType = ((buf[0] << 2) >> 6).into();
+        let tkl: u8 = buf[0] & 15;
+        let code: CoapHeaderCode = buf[1].into();
+
+        if code == CoapHeaderCode::EMPTY && tkl > 0 {
+            return Err(CoapError::MessageFormatError);
+        }
+        let message_id: u16 = (buf[2] as u16) << 8 | buf[3] as u16;
+
+        Ok(CoapHeader {
+            version,
+            t,
+            tkl,
+            code,
+            message_id,
+        })
+    }
+    pub fn get_version(&self) -> u8 {
+        self.version
+    }
+    pub fn get_tkl(&self) -> u8 {
+        self.tkl
+    }
+    pub fn get_type(&self) -> CoapHeaderType {
+        self.t
+    }
+    pub fn get_code(&self) -> CoapHeaderCode {
+        self.code
+    }
+    pub fn get_message_id(&self) -> u16 {
+        self.message_id
+    }
+}
+
+impl Copy for CoapHeader {}
+
+impl Copy for CoapHeaderType {}
+
+impl From<u8> for CoapHeaderType {
+    fn from(item: u8) -> Self {
+        match item {
+            0 => CoapHeaderType::Confirmable,
+            1 => CoapHeaderType::NonConfirmable,
+            2 => CoapHeaderType::Acknowledgement,
+            3 => CoapHeaderType::Reset,
+            _ => unreachable!(),
+        }
+    }
+}
+impl From<CoapHeaderType> for u8 {
+    fn from(item: CoapHeaderType) -> Self {
+        match item {
+            CoapHeaderType::Confirmable => 0,
+            CoapHeaderType::NonConfirmable => 1,
+            CoapHeaderType::Acknowledgement => 2,
+            CoapHeaderType::Reset => 3,
+        }
+    }
 }
 
 impl Copy for CoapHeaderCode {}
@@ -104,114 +221,6 @@ impl From<CoapHeaderCode> for u8 {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct CoapHeader {
-    version: u8,          // u2
-    t: CoapHeaderType,    // u2
-    tkl: u8,              // u4
-    code: CoapHeaderCode, // u8
-    message_id: u16,      // u16
-}
-
-impl Copy for CoapHeader {}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum CoapHeaderType {
-    Confirmable,
-    NonConfirmable,
-    Acknowledgement,
-    Reset,
-}
-
-impl Copy for CoapHeaderType {}
-
-impl From<u8> for CoapHeaderType {
-    fn from(item: u8) -> Self {
-        match item {
-            0 => CoapHeaderType::Confirmable,
-            1 => CoapHeaderType::NonConfirmable,
-            2 => CoapHeaderType::Acknowledgement,
-            3 => CoapHeaderType::Reset,
-            _ => unreachable!(),
-        }
-    }
-}
-impl From<CoapHeaderType> for u8 {
-    fn from(item: CoapHeaderType) -> Self {
-        match item {
-            CoapHeaderType::Confirmable => 0,
-            CoapHeaderType::NonConfirmable => 1,
-            CoapHeaderType::Acknowledgement => 2,
-            CoapHeaderType::Reset => 3,
-        }
-    }
-}
-
-impl CoapHeader {
-    pub fn new(t: CoapHeaderType, tkl: u8, code: CoapHeaderCode, message_id: u16) -> Self {
-        CoapHeader {
-            version: 0x1,
-            t,
-            tkl,
-            code,
-            message_id,
-        }
-    }
-    pub(crate) fn encode(&self) -> Result<[u8; 4], CoapError> {
-        if self.version != 1 {
-            return Err(CoapError::WrongVersion);
-        }
-        let t: u8 = self.t.into();
-        let vtt: u8 = (self.version << 6) | (t << 4) | self.tkl;
-        let code: u8 = self.code.into();
-
-        if self.code == CoapHeaderCode::EMPTY && self.tkl > 0 {
-            return Err(CoapError::MessageFormatError);
-        }
-        let msg_2: u8 = (self.message_id & 255) as u8;
-        let msg_1: u8 = (self.message_id >> 8) as u8;
-
-        Ok([vtt, code, msg_1, msg_2])
-    }
-    pub(crate) fn decode(buf: &[u8]) -> Result<CoapHeader, CoapError> {
-        let version: u8 = buf[0] >> 6;
-        if version != 1 {
-            return Err(CoapError::WrongVersion);
-        }
-        let t: CoapHeaderType = ((buf[0] << 2) >> 6).into();
-        let tkl: u8 = buf[0] & 15;
-        let code: CoapHeaderCode = buf[1].into();
-
-        if code == CoapHeaderCode::EMPTY && tkl > 0 {
-            return Err(CoapError::MessageFormatError);
-        }
-        let message_id: u16 = (buf[2] as u16) << 8 | buf[3] as u16;
-
-        Ok(CoapHeader {
-            version,
-            t,
-            tkl,
-            code,
-            message_id,
-        })
-    }
-    pub fn get_version(&self) -> u8 {
-        self.version
-    }
-    pub fn get_tkl(&self) -> u8 {
-        self.tkl
-    }
-    pub fn get_type(&self) -> CoapHeaderType {
-        self.t
-    }
-    pub fn get_code(&self) -> CoapHeaderCode {
-        self.code
-    }
-    pub fn get_message_id(&self) -> u16 {
-        self.message_id
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::message::header::*;
@@ -222,7 +231,8 @@ mod tests {
             3,
             CoapHeaderCode::Changed,
             123,
-        );
+        )
+        .unwrap();
         let en_header = header.encode().unwrap();
         let de_header = CoapHeader::decode(&en_header).unwrap();
 
