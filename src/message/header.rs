@@ -158,6 +158,9 @@ impl CoapHeader {
         }
     }
     pub(crate) fn encode(&self) -> Result<[u8; 4], CoapError> {
+        if self.version != 1 {
+            return Err(CoapError::WrongVersion);
+        }
         let t: u8 = self.t.into();
         let vtt: u8 = (self.version << 6) | (t << 4) | self.tkl;
         let code: u8 = self.code.into();
@@ -172,6 +175,9 @@ impl CoapHeader {
     }
     pub(crate) fn decode(buf: &[u8]) -> Result<CoapHeader, CoapError> {
         let version: u8 = buf[0] >> 6;
+        if version != 1 {
+            return Err(CoapError::WrongVersion);
+        }
         let t: CoapHeaderType = ((buf[0] << 2) >> 6).into();
         let tkl: u8 = buf[0] & 15;
         let code: CoapHeaderCode = buf[1].into();
